@@ -75,12 +75,19 @@ export const calculateOdds = (bets, participants) => {
     });
 
     // Max Score Odds (Per Shooter)
-    // If I bet on Ric to hit max score, I compete against everyone else in the Max Score pool? 
-    // Or is it a global pool? "Will ONE OF THEM hit it?" or "Will RIC hit it?"
-    // Let's assume specific shooter.
-    // NOTE: Max Score is rare. Parimutuel is risky if nobody wins.
-    // Let's keep it simple: Fixed Odds 5.0 for Max Score for now, to avoid complexity if pool is empty.
-    // Or better: Accumulate all Max Score bets. If Ric hits, everyone who bet on Ric splits the pot.
+    // We display the odd assuming "Only THIS person hits it" (Best case)
+    // or we display "Current Pool / My Stake" ? 
+    // Let's stick to: Total Pool / Total Stake on THIS Target. 
+    // This is valid if only this target wins. If multiple win, odd drops (User risk).
+    const totalMaxScorePool = totalPool.maxScore;
+    Object.keys(pools.maxScore).forEach(target => {
+        const stake = pools.maxScore[target];
+        if (stake === 0) {
+            odds[`max_score_${target}`] = 10.0;
+        } else {
+            odds[`max_score_${target}`] = totalMaxScorePool / stake;
+        }
+    });
 
     return odds;
 };
@@ -102,7 +109,39 @@ export const calculatePayouts = (bets, results, oddsAtClose) => {
             odd = oddsAtClose[`loser_${bet.target}`] || 1.0;
         } else if (bet.type === 'max_score' && results.maxScoreHitters?.includes(bet.target)) {
             win = true;
-            odd = 5.0; // Fixed odds for Max Score for simplicity
+
+            // DYNAMIC ODDS LOGIC (Split Pot)
+            // 1. Calculate total pool for 'max_score' (already in oddsAtClose calculation conceptually ?)
+            // Actually, we need to recalculate the specific odd for THIS target based to be precise, 
+            // OR rely on 'oddsAtClose' having the correct value.
+            // Problem: 'oddsAtClose' is calculated BEFORE results are known? 
+            // Standard Parimutuel: Odds are final at "Close". But for "Max Score", if multiple people win, 
+            // do they split the SAME pot? 
+            // In Horse Racing (Place/Show), it's complex.
+            // Simplified Friends Logic: 
+            // - Market: "Will Ric hit 30?" -> Pool for "Ric Yes" vs "Ric No"? No, we only have "Backing".
+            // - Market: "Who hits 30?" -> Pool of ALL 30-bets. 
+            // - If Ric and Tom hit, the pool is split between Ric-Backers and Tom-Backers.
+
+            // Let's implement the Split Pot here strictly.
+            // We need to know the Total Stakes on ALL Winning Targets.
+            const totalMaxScorePool = bets.filter(b => b.type === 'max_score').reduce((sum, b) => sum + b.amount, 0);
+
+            const winningTargets = results.maxScoreHitters || [];
+            if (winningTargets.length === 0) {
+                odd = 0; // House wins (nobody hit it)
+            } else {
+                // Calculate total stake on ALL winners
+                const winningStakes = bets
+                    .filter(b => b.type === 'max_score' && winningTargets.includes(b.target))
+                    .reduce((sum, b) => sum + b.amount, 0);
+
+                if (winningStakes > 0) {
+                    odd = totalMaxScorePool / winningStakes;
+                } else {
+                    odd = 1.0; // Refund? Or lost? Let's say 1.0 (Audit)
+                }
+            }
         }
 
         if (win) {

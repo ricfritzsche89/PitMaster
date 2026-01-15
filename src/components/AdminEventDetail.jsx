@@ -9,6 +9,7 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [localEvent, setLocalEvent] = useState(event);
     const [financials, setFinancials] = useState(calculateFinancials(event));
+    const [showQR, setShowQR] = useState(false);
 
     useEffect(() => {
         setLocalEvent(event);
