@@ -4,8 +4,8 @@
  * @returns {Promise<string>} - Base64 data URL of the image
  */
 export const generateAiLogo = async (title) => {
-    // Construct a rich prompt for better results
-    const fullPrompt = `Vector Logo for a party named "${title}", minimalistic, modern, cool, neon colors, sticker style, white background, high quality, vector art, 8k`;
+    // Construct a rich prompt for better results (Dark Mode Optimized)
+    const fullPrompt = `Vector Logo for a party named "${title}", glowing neon colors, deep black background, esports style, high contrast, minimalistic, 8k resolution, centered`;
 
     // Pollinations API URL (Free, No Key)
     const encodedPrompt = encodeURIComponent(fullPrompt);
