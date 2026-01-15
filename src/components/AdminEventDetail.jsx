@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { updateEvent, subscribeToEvent } from '../services/db';
+import { updateEvent, subscribeToEvent, deleteEvent } from '../services/db';
 import { calculateFinancials, formatCurrency } from '../services/finance';
 import { generateAiLogo } from '../services/ai';
 import SimpleList from './SimpleList';
@@ -38,9 +38,23 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
 
     return (
         <div>
-            <button onClick={onBack} className="btn-ghost" style={{ marginBottom: '1rem' }}>
-                ← Zurück
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <button onClick={onBack} className="btn-ghost">
+                    ← Zurück
+                </button>
+                <button
+                    onClick={async () => {
+                        if (window.confirm("⚠️ Event wirklich unwiderruflich löschen?")) {
+                            await deleteEvent(localEvent.id);
+                            if (onUpdate) onUpdate(); // Refresh list
+                            onBack(); // Go back
+                        }
+                    }}
+                    style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.5)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                    🗑️ Event löschen
+                </button>
+            </div>
 
             <div className="glass card">
                 <h2 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '1rem' }}>

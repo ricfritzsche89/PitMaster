@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
 
@@ -21,6 +21,11 @@ export const createEvent = async (eventData) => {
         console.error("Error adding document: ", e);
         throw e;
     }
+};
+
+export const deleteEvent = async (eventId) => {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId);
+    await deleteDoc(docRef);
 };
 
 export const getEvent = async (eventId) => {
