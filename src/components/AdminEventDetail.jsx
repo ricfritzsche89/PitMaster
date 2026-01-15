@@ -429,19 +429,40 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                             </div>
                         </div>
 
-                        {/* LIVE QR CODE FOR BETTING */}
-                        <div style={{ textAlign: 'center', marginBottom: '3rem', padding: '2rem', background: 'white', borderRadius: '16px', color: 'black' }}>
-                            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#000' }}>🎰 Dein QR Code fürs Wettbüro</h3>
-                            <div style={{ maxWidth: '200px', margin: '0 auto' }}>
-                                <QRCode
-                                    size={256}
-                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                    value={`https://ricfritzsche89.github.io/PitMaster/betting/${localEvent.id}`}
-                                    viewBox={`0 0 256 256`}
-                                />
-                            </div>
-                            <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.6 }}>Handy scannen lassen zum Wetten!</p>
+                        {/* LIVE QR CODE BUTTON */}
+                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                            <button
+                                className="btn-primary"
+                                onClick={() => setShowQR(true)}
+                                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', padding: '12px 24px', fontSize: '1rem' }}
+                            >
+                                📱 QR Code fürs Wettbüro anzeigen
+                            </button>
+                            <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', opacity: 0.6 }}>Zum Aufhängen oder Scannen lassen</p>
                         </div>
+
+                        {/* QR CODE MODAL OVERLAY */}
+                        {showQR && (
+                            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                <h2 style={{ color: 'white', marginBottom: '2rem' }}>Wettbüro Zugang</h2>
+                                <div style={{ background: 'white', padding: '2rem', borderRadius: '16px' }}>
+                                    <QRCode
+                                        size={300}
+                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        value={`https://ricfritzsche89.github.io/PitMaster/betting/${localEvent.id}`}
+                                        viewBox={`0 0 256 256`}
+                                    />
+                                </div>
+                                <p style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem' }}>Scanne mich!</p>
+                                <button
+                                    onClick={() => setShowQR(false)}
+                                    className="btn-ghost"
+                                    style={{ marginTop: '2rem', fontSize: '1.2rem', padding: '12px 32px' }}
+                                >
+                                    Schließen
+                                </button>
+                            </div>
+                        )}
 
                         {/* RESULT ENTRY FORM */}
                         <div className="glass" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
