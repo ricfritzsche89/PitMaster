@@ -389,6 +389,104 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                     </div>
                 )}
 
+                {/* BETTING TAB (WETTBÜRO) - ADMIN */}
+                {activeTab === 'betting' && (
+                    <div>
+                        <div style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(0,0,0,0))', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,215,0,0.3)', marginBottom: '2rem' }}>
+                            <h3 style={{ marginTop: 0, color: 'var(--accent-gold)' }}>🎰 Wettbüro Leitung</h3>
+                            <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>Status:
+                                <strong style={{ marginLeft: '8px', color: localEvent.bettingStatus === 'open' ? '#22c55e' : localEvent.bettingStatus === 'finished' ? '#3b82f6' : '#ef4444' }}>
+                                    {localEvent.bettingStatus === 'open' ? '🟢 GEÖFFNET' : localEvent.bettingStatus === 'finished' ? '🏁 BEENDET' : '🔴 GESCHLOSSEN'}
+                                </strong>
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                {localEvent.bettingStatus !== 'open' && (
+                                    <button
+                                        className="btn-primary"
+                                        onClick={async () => {
+                                            await updateEvent(localEvent.id, { bettingStatus: 'open' });
+                                            setLocalEvent({ ...localEvent, bettingStatus: 'open' });
+                                        }}
+                                    >
+                                        🔔 Wetten eröffnen
+                                    </button>
+                                )}
+                                {localEvent.bettingStatus === 'open' && (
+                                    <button
+                                        className="btn-primary"
+                                        style={{ background: 'linear-gradient(135deg, #ef4444, #991b1b)' }}
+                                        onClick={async () => {
+                                            await updateEvent(localEvent.id, { bettingStatus: 'closed' });
+                                            setLocalEvent({ ...localEvent, bettingStatus: 'closed' });
+                                        }}
+                                    >
+                                        ⛔ Wetten schließen
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RESULT ENTRY FORM */}
+                        <div className="glass" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+                            <h3 style={{ marginTop: 0 }}>🏆 Ergebnisse eintragen</h3>
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                if (!window.confirm("Ergebnisse speichern und Auszahlung berechnen?")) return;
+
+                                const fd = new FormData(e.target);
+                                const results = {
+                                    winner: fd.get('winner'),
+                                    loser: fd.get('loser'),
+                                    maxScoreHitters: fd.getAll('maxScoreHitters') // Multi-select if needed, for now just names
+                                };
+
+                                await updateEvent(localEvent.id, {
+                                    bettingResults: results,
+                                    bettingStatus: 'finished'
+                                });
+                                setLocalEvent({ ...localEvent, bettingResults: results, bettingStatus: 'finished' });
+                                alert("Ergebnisse gespeichert!");
+                            }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem' }}>🥇 Globaler Gewinner</label>
+                                        <select name="winner" className="input-field" required>
+                                            <option value="">Wählen...</option>
+                                            {localEvent.guests?.filter(g => g.status === 'accepted').map(g => (
+                                                <option key={g.name} value={g.name}>{g.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem' }}>💩 Globaler Verlierer</label>
+                                        <select name="loser" className="input-field" required>
+                                            <option value="">Wählen...</option>
+                                            {localEvent.guests?.filter(g => g.status === 'accepted').map(g => (
+                                                <option key={g.name} value={g.name}>{g.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>🎯 Wer hat einen Volltreffer gelandet?</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                        {localEvent.guests?.filter(g => g.status === 'accepted').map(g => (
+                                            <label key={g.name} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.05)', padding: '5px 10px', borderRadius: '15px' }}>
+                                                <input type="checkbox" name="maxScoreHitters" value={g.name} />
+                                                {g.name}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <button type="submit" className="btn-primary" style={{ width: '100%' }}>🏁 Ergebnisse speichern & Wetten auswerten</button>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );
