@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createEvent, getEvent } from '../services/db';
 import AdminEventDetail from './AdminEventDetail';
 import { calculateFinancials, formatCurrency } from '../services/finance';
+import { generateAiLogo } from '../services/ai';
 
 export default function AdminView() {
     const [events, setEvents] = useState([]);
@@ -145,28 +146,52 @@ export default function AdminView() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <input placeholder="Was wird gefeiert? (z.B. Schützenfest)" className="input-field" value={formData.theme} onChange={e => setFormData({ ...formData, theme: e.target.value })} />
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="input-field"
-                                onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        if (file.size > 500000) { // 500KB limit
-                                            alert("Bild ist zu groß! Bitte maximal 500KB.");
+                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Bild / Logo</label>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            if (file.size > 500000) { alert("Max 500KB!"); return; }
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                                setFormData({ ...formData, image: reader.result });
+                                            };
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }}
+                                    className="input-field"
+                                    style={{ marginBottom: 0, flex: 1 }}
+                                />
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }} // Magic Purple/Pink for AI
+                                    onClick={async () => {
+                                        if (!formData.title) {
+                                            alert("Bitte gib erst einen Titel ein!");
                                             return;
                                         }
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                            setFormData({ ...formData, image: reader.result });
-                                        };
-                                        reader.readAsDataURL(file);
-                                    }
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        const btn = document.activeElement;
+                                        const originalText = btn.innerText;
+                                        btn.innerText = "⏳ Generiere...";
+                                        btn.disabled = true;
+                                        try {
+                                            const aiImage = await generateAiLogo(formData.title);
+                                            setFormData({ ...formData, image: aiImage });
+                                        } catch (e) {
+                                            alert("Fehler bei der KI-Generierung. Probier es nochmal.");
+                                        }
+                                        btn.innerText = originalText;
+                                        btn.disabled = false;
+                                    }}
+                                >
+                                    ✨ KI Logo
+                                </button>
+                            </div>
+                            {formData.image && <div style={{ marginTop: '0.5rem', height: '100px', backgroundImage: `url(${formData.image})`, backgroundSize: 'cover', borderRadius: '8px' }}></div>}
                             <input required type="date" className="input-field" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                             <input required type="time" className="input-field" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} />
                         </div>

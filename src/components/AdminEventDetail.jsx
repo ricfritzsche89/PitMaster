@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { updateEvent, subscribeToEvent } from '../services/db';
 import { calculateFinancials, formatCurrency } from '../services/finance';
+import { generateAiLogo } from '../services/ai';
 import SimpleList from './SimpleList';
 
 export default function AdminEventDetail({ event, onBack, onUpdate }) {
@@ -80,22 +81,46 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                                 ) : (
                                     <div style={{ height: '150px', borderRadius: '12px', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Kein Bild</div>
                                 )}
-                                <label className="btn-primary" style={{ display: 'block', textAlign: 'center', fontSize: '0.8rem', padding: '6px', cursor: 'pointer' }}>
-                                    📷 Bild ändern
-                                    <input type="file" hidden accept="image/*" onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                            if (file.size > 500000) { alert("Max 500KB!"); return; }
-                                            const reader = new FileReader();
-                                            reader.onloadend = async () => {
-                                                const updated = { ...localEvent, image: reader.result };
+                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                    <label className="btn-primary" style={{ flex: 1, textAlign: 'center', fontSize: '0.8rem', padding: '6px', cursor: 'pointer' }}>
+                                        📷 Upload
+                                        <input type="file" hidden accept="image/*" onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                if (file.size > 500000) { alert("Max 500KB!"); return; }
+                                                const reader = new FileReader();
+                                                reader.onloadend = async () => {
+                                                    const updated = { ...localEvent, image: reader.result };
+                                                    setLocalEvent(updated);
+                                                    await updateEvent(localEvent.id, { image: reader.result });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }} />
+                                    </label>
+                                    <button
+                                        className="btn-primary"
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '6px', background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+                                        onClick={async (e) => {
+                                            const btn = e.target;
+                                            const originalText = btn.innerText;
+                                            btn.innerText = "⏳...";
+                                            btn.disabled = true;
+                                            try {
+                                                const aiImage = await generateAiLogo(localEvent.title);
+                                                const updated = { ...localEvent, image: aiImage };
                                                 setLocalEvent(updated);
-                                                await updateEvent(localEvent.id, { image: reader.result });
-                                            };
-                                            reader.readAsDataURL(file);
-                                        }
-                                    }} />
-                                </label>
+                                                await updateEvent(localEvent.id, { image: aiImage });
+                                            } catch (err) {
+                                                alert("KI Fehler. Nochmal probieren.");
+                                            }
+                                            btn.innerText = originalText;
+                                            btn.disabled = false;
+                                        }}
+                                    >
+                                        ✨ KI Logo
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ flex: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
