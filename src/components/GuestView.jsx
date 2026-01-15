@@ -321,4 +321,7 @@ function BettingResults({ eventId, results }) {
                     <strong>🎯 30er Club:</strong> {results.maxScoreHitters.join(', ')}
                 </div>
             )}
+        </div>
+    );
+}
 
