@@ -3,6 +3,7 @@ import { updateEvent, subscribeToEvent, deleteEvent } from '../services/db';
 import { calculateFinancials, formatCurrency } from '../services/finance';
 import { generateAiLogo } from '../services/ai';
 import SimpleList from './SimpleList';
+import QRCode from "react-qr-code";
 
 export default function AdminEventDetail({ event, onBack, onUpdate }) {
     const [activeTab, setActiveTab] = useState('overview');
@@ -425,6 +426,20 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                                     </button>
                                 )}
                             </div>
+                        </div>
+
+                        {/* LIVE QR CODE FOR BETTING */}
+                        <div style={{ textAlign: 'center', marginBottom: '3rem', padding: '2rem', background: 'white', borderRadius: '16px', color: 'black' }}>
+                            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#000' }}>🎰 Dein QR Code fürs Wettbüro</h3>
+                            <div style={{ maxWidth: '200px', margin: '0 auto' }}>
+                                <QRCode
+                                    size={256}
+                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                    value={`https://ricfritzsche89.github.io/PitMaster/betting/${localEvent.id}`}
+                                    viewBox={`0 0 256 256`}
+                                />
+                            </div>
+                            <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.6 }}>Handy scannen lassen zum Wetten!</p>
                         </div>
 
                         {/* RESULT ENTRY FORM */}
