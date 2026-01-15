@@ -241,12 +241,12 @@ function BettingInterface({ eventId, guests, currentUser }) {
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
                 <button onClick={() => setSelectedType('winner')} className={selectedType === 'winner' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: '0.8rem' }}>🏆 Sieger</button>
                 <button onClick={() => setSelectedType('loser')} className={selectedType === 'loser' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: '0.8rem' }}>💩 Verlierer</button>
-                <button onClick={() => setSelectedType('max_score')} className={selectedType === 'max_score' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: '0.8rem' }}>🎯 30er</button>
+                <button onClick={() => setSelectedType('max_score')} className={selectedType === 'max_score' ? 'btn-primary' : 'btn-ghost'} style={{ fontSize: '0.8rem' }}>🎯 Volltreffer</button>
             </div>
 
             <form onSubmit={handlePlaceBet} style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                    {selectedType === 'winner' ? 'Wer gewinnt das Ding?' : selectedType === 'loser' ? 'Wer verkackt es?' : 'Wer schießt eine glatte 30?'}
+                    {selectedType === 'winner' ? 'Wer gewinnt das Ding?' : selectedType === 'loser' ? 'Wer verkackt es?' : 'Wer landet einen Volltreffer?'}
                 </label>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -318,7 +318,7 @@ function BettingResults({ eventId, results }) {
 
             {results.maxScoreHitters && results.maxScoreHitters.length > 0 && (
                 <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255, 215, 0, 0.1)', borderRadius: '12px' }}>
-                    <strong>🎯 30er Club:</strong> {results.maxScoreHitters.join(', ')}
+                    <strong>🎯 Volltreffer Club:</strong> {results.maxScoreHitters.join(', ')}
                 </div>
             )}
         </div>
