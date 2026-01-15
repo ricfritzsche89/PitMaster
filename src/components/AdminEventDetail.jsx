@@ -449,7 +449,7 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                                     <QRCode
                                         size={300}
                                         style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                        value={`https://ricfritzsche89.github.io/PitMaster/betting/${localEvent.id}`}
+                                        value={`https://ricfritzsche89.github.io/PitMaster/#/betting/${localEvent.id}`}
                                         viewBox={`0 0 256 256`}
                                     />
                                 </div>

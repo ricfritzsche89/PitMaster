@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react'
 import './index.css'
 import AdminView from './components/AdminView'
@@ -8,7 +8,7 @@ import BettingPage from './components/BettingPage'
 // Main App Component with Router
 function App() {
   return (
-    <Router basename="/PitMaster">
+    <Router>
       <Routes>
         <Route path="/" element={<HomeHandler />} />
         <Route path="/betting/:id" element={<BettingPage />} />
