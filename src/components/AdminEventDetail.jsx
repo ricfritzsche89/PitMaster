@@ -63,11 +63,12 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                    {['overview', 'finances', 'guests'].map(tab => {
+                    {['overview', 'finances', 'guests', 'betting'].map(tab => {
                         let label = tab;
                         if (tab === 'overview') label = 'Übersicht';
                         if (tab === 'finances') label = 'Finanzen';
                         if (tab === 'guests') label = 'Gäste';
+                        if (tab === 'betting') label = 'Wettbüro';
 
                         return (
                             <button

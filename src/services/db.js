@@ -1,7 +1,44 @@
 import { db } from '../firebase';
-import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot, deleteDoc, setDoc } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
+
+// --- BETTING FUNCTIONS ---
+
+// Place a bet (Subcollection 'bets')
+export const placeBet = async (eventId, betData) => {
+    // betData: { user, target, type, amount, timestamp }
+    const betsRef = collection(db, EVENTS_COLLECTION, eventId, 'bets');
+    await addDoc(betsRef, {
+        ...betData,
+        timestamp: Date.now()
+    });
+};
+
+// Update Betting Status (open/closed)
+export const updateBettingStatus = async (eventId, status) => {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId);
+    await updateDoc(docRef, { bettingStatus: status });
+};
+
+// Set Competition Results
+export const setCompetitionResults = async (eventId, results) => {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId);
+    await updateDoc(docRef, {
+        bettingResults: results,
+        bettingStatus: 'finished'
+    });
+};
+
+// Subscribe to Bets (Real-time odds)
+export const subscribeToBets = (eventId, callback) => {
+    const betsRef = collection(db, EVENTS_COLLECTION, eventId, 'bets');
+    return onSnapshot(betsRef, (snapshot) => {
+        const bets = [];
+        snapshot.forEach(doc => bets.push({ id: doc.id, ...doc.data() }));
+        callback(bets);
+    });
+};
 
 // Create a new event with extended v2 schema
 export const createEvent = async (eventData) => {
