@@ -801,8 +801,17 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
 
                         {/* AWARDING SECTION */}
                         <div className="glass" style={{ padding: '0', marginBottom: '2rem' }}>
-                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.1), transparent)' }}>
+                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.1), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0 }}>🏆 Siegerehrung & Urkunden</h3>
+                                <select
+                                    style={{ background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '5px', borderRadius: '5px' }}
+                                    id="certificateThemeSelector"
+                                    defaultValue="classic"
+                                >
+                                    <option value="classic">🏛️ Klassisch</option>
+                                    <option value="western">🤠 Western</option>
+                                    <option value="bbq">🥩 BBQ Master</option>
+                                </select>
                             </div>
 
                             <div style={{ padding: '1rem' }}>
@@ -825,8 +834,9 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                                         <button
                                             className="btn-primary"
                                             onClick={() => {
+                                                const theme = document.getElementById('certificateThemeSelector').value;
                                                 import('../services/certificate').then(mod => {
-                                                    mod.generateCertificate(localEvent, p, `${i + 1}. Platz`, 'winner');
+                                                    mod.generateCertificate(localEvent, p, `${i + 1}. Platz`, 'winner', theme);
                                                 });
                                             }}
                                             style={{ fontSize: '0.8rem', padding: '8px 16px' }}
@@ -859,13 +869,14 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                                             <button
                                                 className="btn-primary"
                                                 onClick={() => {
+                                                    const theme = document.getElementById('certificateThemeSelector').value;
                                                     const loser = participants.sort((a, b) => {
                                                         const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
                                                         const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
                                                         return sB - sA;
                                                     })[participants.length - 1];
                                                     import('../services/certificate').then(mod => {
-                                                        mod.generateCertificate(localEvent, loser, "Teilnehmer der Herzen", 'loser');
+                                                        mod.generateCertificate(localEvent, loser, "Teilnehmer der Herzen", 'loser', theme);
                                                     });
                                                 }}
                                                 style={{ fontSize: '0.8rem', padding: '8px 16px', background: '#78350f' }}
