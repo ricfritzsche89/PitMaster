@@ -796,24 +796,106 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                         <div className="glass" style={{ padding: '2rem', marginBottom: '2rem', textAlign: 'center' }}>
                             <h3 style={{ marginTop: 0 }}>🔫 Live Schießstand (Party Mode)</h3>
                             <p style={{ opacity: 0.7, marginBottom: '2rem' }}>
-                                Öffne diesen Link auf dem Fernseher für die Live-Anzeige.
                             </p>
+                        </div>
 
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <code style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '8px', fontFamily: 'monospace' }}>
-                                    {window.location.host}/#/party/{localEvent.id}/shooting
-                                </code>
-                                <button
-                                    className="btn-primary"
-                                    onClick={() => {
-                                        const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}#/party/${localEvent.id}/shooting`;
-                                        window.open(url, '_blank');
-                                    }}
-                                >
-                                    📺 TV-View öffnen
-                                </button>
+                        {/* AWARDING SECTION */}
+                        <div className="glass" style={{ padding: '0', marginBottom: '2rem' }}>
+                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.1), transparent)' }}>
+                                <h3 style={{ margin: 0 }}>🏆 Siegerehrung & Urkunden</h3>
+                            </div>
+
+                            <div style={{ padding: '1rem' }}>
+                                {/* TOP 3 */}
+                                {participants.sort((a, b) => {
+                                    const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
+                                    const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
+                                    return sB - sA;
+                                }).slice(0, 3).map((p, i) => (
+                                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: i === 0 ? '1px solid var(--accent-gold)' : 'none' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <div style={{ fontSize: '2rem' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</div>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{p.name}</div>
+                                                <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
+                                                    {i + 1}. Platz • {(p.round1 || []).reduce((x, y) => x + y, 0) + (p.round2 || []).reduce((x, y) => x + y, 0)} Punkte
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="btn-primary"
+                                            onClick={() => {
+                                                import('../services/certificate').then(mod => {
+                                                    mod.generateCertificate(localEvent, p, `${i + 1}. Platz`, 'winner');
+                                                });
+                                            }}
+                                            style={{ fontSize: '0.8rem', padding: '8px 16px' }}
+                                        >
+                                            📄 Urkunde
+                                        </button>
+                                    </div>
+                                ))}
+
+                                {/* LOSER (LAST PLACE) */}
+                                {participants.length > 3 && (
+                                    <>
+                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '1rem 0' }}></div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ fontSize: '2rem' }}>🩹</div>
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                                                        {participants.sort((a, b) => {
+                                                            const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
+                                                            const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
+                                                            return sB - sA;
+                                                        })[participants.length - 1].name}
+                                                    </div>
+                                                    <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
+                                                        Letzter Platz (Trostpreis)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                className="btn-primary"
+                                                onClick={() => {
+                                                    const loser = participants.sort((a, b) => {
+                                                        const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
+                                                        const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
+                                                        return sB - sA;
+                                                    })[participants.length - 1];
+                                                    import('../services/certificate').then(mod => {
+                                                        mod.generateCertificate(localEvent, loser, "Teilnehmer der Herzen", 'loser');
+                                                    });
+                                                }}
+                                                style={{ fontSize: '0.8rem', padding: '8px 16px', background: '#78350f' }}
+                                            >
+                                                📄 Trost-Urkunde
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
+
+                        {/* Existing content continues... */}
+
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <code style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '8px', fontFamily: 'monospace' }}>
+                                {window.location.host}/#/party/{localEvent.id}/shooting
+                            </code>
+                            <button
+                                className="btn-primary"
+                                onClick={() => {
+                                    const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}#/party/${localEvent.id}/shooting`;
+                                    window.open(url, '_blank');
+                                }}
+                            >
+                                📺 TV-View öffnen
+                            </button>
+                        </div>
+
 
                         {/* ADD PARTICIPANT */}
                         <div className="glass" style={{ padding: '2rem', marginBottom: '2rem' }}>
@@ -1034,6 +1116,6 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
