@@ -51,7 +51,8 @@ export default function AdminView() {
             const payload = {
                 ...formData,
                 budgetLimit: parseFloat(formData.budgetLimit) || 0,
-                maxGuests: parseInt(formData.maxGuests) || 0
+                maxGuests: parseInt(formData.maxGuests) || 0,
+                bettingStatus: 'open'
             };
 
             const newEventId = await createEvent(payload);
@@ -133,7 +134,7 @@ export default function AdminView() {
         <div className="container animate-fade-in">
             <div className="glass card" style={{ maxWidth: '800px', margin: '1rem auto', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-                    <h1 style={{ background: 'linear-gradient(to right, #22c55e, #14532d)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 }}>PitMaster Admin</h1>
+                    <h1 className="text-gradient">PitMaster Admin</h1>
                     <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
                         {showForm ? 'Abbrechen' : '+ Neue Party'}
                     </button>
@@ -142,68 +143,105 @@ export default function AdminView() {
                 {showForm && (
                     <form onSubmit={handleCreate} className="animate-fade-in" style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem' }}>
                         <h3 style={{ marginBottom: '1rem' }}>Neue Party erstellen</h3>
-                        <input required placeholder="Party Name" className="input-field" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <input placeholder="Was wird gefeiert? (z.B. Schützenfest)" className="input-field" value={formData.theme} onChange={e => setFormData({ ...formData, theme: e.target.value })} />
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Bild / Logo</label>
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files[0];
-                                        if (file) {
-                                            if (file.size > 500000) { alert("Max 500KB!"); return; }
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                                setFormData({ ...formData, image: reader.result });
-                                            };
-                                            reader.readAsDataURL(file);
-                                        }
-                                    }}
-                                    className="input-field"
-                                    style={{ marginBottom: 0, flex: 1 }}
-                                />
-                                <button
-                                    type="button"
-                                    className="btn-primary"
-                                    style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }} // Magic Purple/Pink for AI
-                                    onClick={async () => {
-                                        if (!formData.title) {
-                                            alert("Bitte gib erst einen Titel ein!");
-                                            return;
-                                        }
-                                        const btn = document.activeElement;
-                                        const originalText = btn.innerText;
-                                        btn.innerText = "⏳ Generiere...";
-                                        btn.disabled = true;
-                                        try {
-                                            const aiImage = await generateAiLogo(formData.title);
-                                            setFormData({ ...formData, image: aiImage });
-                                        } catch (e) {
-                                            alert("Fehler bei der KI-Generierung. Probier es nochmal.");
-                                        }
-                                        btn.innerText = originalText;
-                                        btn.disabled = false;
-                                    }}
-                                >
-                                    ✨ KI Logo
-                                </button>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                            <input required placeholder="Party Name" className="input-field" style={{ marginBottom: 0 }} value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                            <input placeholder="Admin PIN" className="input-field" style={{ marginBottom: 0 }} maxLength={4} title="4-Stelliger PIN für Admin-Login auf anderen Geräten" value={formData.adminPin || ''} onChange={e => setFormData({ ...formData, adminPin: e.target.value })} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+
+                            {/* Theme Selection - Dropdown + Custom Input */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Was wird gefeiert?</label>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <select
+                                        className="input-field"
+                                        style={{ marginBottom: 0, flex: 1 }}
+                                        value={['Schießwettbewerb', 'Geburtstag', 'Party'].includes(formData.theme) ? formData.theme : 'Sonstiges'}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            if (val === 'Sonstiges') {
+                                                setFormData({ ...formData, theme: '' });
+                                            } else {
+                                                setFormData({ ...formData, theme: val });
+                                            }
+                                        }}
+                                    >
+                                        <option value="Schießwettbewerb">Schießwettbewerb</option>
+                                        <option value="Geburtstag">Geburtstag</option>
+                                        <option value="Party">Party</option>
+                                        <option value="Sonstiges">Sonstiges / Eigenes...</option>
+                                    </select>
+                                    {(!['Schießwettbewerb', 'Geburtstag', 'Party'].includes(formData.theme)) && (
+                                        <input
+                                            placeholder="Eigenes Thema eingeben..."
+                                            className="input-field"
+                                            style={{ marginBottom: 0, flex: 1 }}
+                                            value={formData.theme}
+                                            onChange={e => setFormData({ ...formData, theme: e.target.value })}
+                                        />
+                                    )}
+                                </div>
                             </div>
-                            {formData.image && <div style={{ marginTop: '0.5rem', height: '100px', backgroundImage: `url(${formData.image})`, backgroundSize: 'cover', borderRadius: '8px' }}></div>}
+                            {/* Image Section - Full Width */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Bild / Logo</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                if (file.size > 500000) { alert("Max 500KB!"); return; }
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => {
+                                                    setFormData({ ...formData, image: reader.result });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="input-field"
+                                        style={{ marginBottom: 0, flex: 1 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn-primary"
+                                        onClick={async () => {
+                                            if (!formData.title) {
+                                                alert("Bitte gib erst einen Titel ein!");
+                                                return;
+                                            }
+                                            const btn = document.activeElement;
+                                            const originalText = btn.innerText;
+                                            btn.innerText = "⏳ Generiere...";
+                                            btn.disabled = true;
+                                            try {
+                                                const aiImage = await generateAiLogo(formData.title);
+                                                setFormData({ ...formData, image: aiImage });
+                                            } catch (e) {
+                                                alert("Fehler bei der KI-Generierung. Probier es nochmal.");
+                                            }
+                                            btn.innerText = originalText;
+                                            btn.disabled = false;
+                                        }}
+                                    >
+                                        ✨ KI Logo
+                                    </button>
+                                </div>
+                                {formData.image && <div style={{ marginTop: '0.5rem', height: '100px', backgroundImage: `url(${formData.image})`, backgroundSize: 'cover', borderRadius: '8px' }}></div>}
+                            </div>
                             <input required type="date" className="input-field" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                             <input required type="time" className="input-field" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} />
                         </div>
 
-                        {/* New v2 Fields */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <input type="number" placeholder="Budget Limit (€)" className="input-field" value={formData.budgetLimit} onChange={e => setFormData({ ...formData, budgetLimit: e.target.value })} />
-                            <input type="number" placeholder="Max Gäste (0 = egal)" className="input-field" value={formData.maxGuests} onChange={e => setFormData({ ...formData, maxGuests: e.target.value })} />
-                        </div>
+                        {/* V2 Fields - Direct Grid Children (Col 1 & Col 2) */}
+                        <input type="number" placeholder="Budget Limit (€)" className="input-field" value={formData.budgetLimit} onChange={e => setFormData({ ...formData, budgetLimit: e.target.value })} />
+                        <input type="number" placeholder="Max Gäste (0 = egal)" className="input-field" value={formData.maxGuests} onChange={e => setFormData({ ...formData, maxGuests: e.target.value })} />
 
-                        <input required placeholder="Ort" className="input-field" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
-                        <textarea placeholder="Beschreibung / Infos" className="input-field" style={{ minHeight: '100px', resize: 'vertical' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                        <input required placeholder="Ort" className="input-field" style={{ gridColumn: '1 / -1' }} value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+                        <textarea placeholder="Beschreibung / Infos" className="input-field" style={{ minHeight: '100px', resize: 'vertical', gridColumn: '1 / -1' }} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
 
                         <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%' }}>
                             {loading ? 'Erstelle...' : 'Party erstellen'}

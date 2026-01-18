@@ -9,10 +9,17 @@ const EVENTS_COLLECTION = 'events';
 export const placeBet = async (eventId, betData) => {
     // betData: { user, target, type, amount, timestamp }
     const betsRef = collection(db, EVENTS_COLLECTION, eventId, 'bets');
-    await addDoc(betsRef, {
+    const docRef = await addDoc(betsRef, {
         ...betData,
         timestamp: Date.now()
     });
+    return docRef.id;
+};
+
+// Delete a bet
+export const deleteBet = async (eventId, betId) => {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId, 'bets', betId);
+    await deleteDoc(docRef);
 };
 
 // Update Betting Status (open/closed)
@@ -40,6 +47,28 @@ export const subscribeToBets = (eventId, callback) => {
     });
 };
 
+// --- FEEDBACK FUNCTIONS ---
+
+// Submit Feedback
+export const submitFeedback = async (eventId, feedbackData) => {
+    // feedbackData: { rating_food, rating_vibes, rating_music, comment }
+    const feedbackRef = collection(db, EVENTS_COLLECTION, eventId, 'feedback');
+    await addDoc(feedbackRef, {
+        ...feedbackData,
+        timestamp: Date.now()
+    });
+};
+
+// Subscribe to Feedback
+export const subscribeToFeedback = (eventId, callback) => {
+    const feedbackRef = collection(db, EVENTS_COLLECTION, eventId, 'feedback');
+    return onSnapshot(feedbackRef, (snapshot) => {
+        const feedback = [];
+        snapshot.forEach(doc => feedback.push({ id: doc.id, ...doc.data() }));
+        callback(feedback);
+    });
+};
+
 // Create a new event with extended v2 schema
 export const createEvent = async (eventData) => {
     try {
@@ -60,10 +89,49 @@ export const createEvent = async (eventData) => {
     }
 };
 
+// --- PARTICIPANTS FUNCTIONS (SHOOTING MATCH) ---
+
 export const deleteEvent = async (eventId) => {
     const docRef = doc(db, EVENTS_COLLECTION, eventId);
     await deleteDoc(docRef);
 };
+
+// Subscribe to Participants
+export const subscribeToParticipants = (eventId, callback) => {
+    const ref = collection(db, EVENTS_COLLECTION, eventId, 'participants');
+    return onSnapshot(ref, (snapshot) => {
+        const data = [];
+        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+        callback(data);
+    });
+};
+
+// Add Participant
+export const addParticipant = async (eventId, name, image = null) => {
+    const ref = collection(db, EVENTS_COLLECTION, eventId, 'participants');
+    await addDoc(ref, {
+        name,
+        image, // Base64 string
+        round1: [null, null, null, null, null],
+        round2: [null, null, null, null, null],
+        stats: { Gewehr: 50, Bogen: 50, Durst: 50, Hunger: 50 }, // Defaults from legacy app
+        timestamp: Date.now()
+    });
+};
+
+// Update Participant Score
+export const updateParticipant = async (eventId, participantId, data) => {
+    const ref = doc(db, EVENTS_COLLECTION, eventId, 'participants', participantId);
+    await updateDoc(ref, data);
+};
+
+// Delete Participant
+export const deleteParticipant = async (eventId, participantId) => {
+    const ref = doc(db, EVENTS_COLLECTION, eventId, 'participants', participantId);
+    await deleteDoc(ref);
+};
+
+// Create a new event with extended v2 schema
 
 export const getEvent = async (eventId) => {
     const docRef = doc(db, EVENTS_COLLECTION, eventId);

@@ -4,6 +4,8 @@ import './index.css'
 import AdminView from './components/AdminView'
 import GuestView from './components/GuestView'
 import BettingPage from './components/BettingPage'
+import FeedbackPage from './components/FeedbackPage'
+import PartyShootingView from './components/PartyShootingView'
 
 // Main App Component with Router
 function App() {
@@ -12,6 +14,8 @@ function App() {
       <Routes>
         <Route path="/" element={<HomeHandler />} />
         <Route path="/betting/:id" element={<BettingPage />} />
+        <Route path="/feedback/:eventId" element={<FeedbackPage />} />
+        <Route path="/party/:eventId/shooting" element={<PartyShootingView />} />
       </Routes>
     </Router>
   )
