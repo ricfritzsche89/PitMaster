@@ -11,7 +11,7 @@ export default function SimpleList({ title, items = [], onItemAdd, onItemToggle,
     };
 
     return (
-        <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+        <div className="glass" style={{ marginBottom: '2rem', padding: '1rem' }}>
             <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>{title}</h3>
 
             <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1rem' }}>

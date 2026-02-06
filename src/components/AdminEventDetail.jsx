@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { updateEvent, subscribeToEvent, deleteEvent, subscribeToBets, deleteBet, subscribeToFeedback, subscribeToParticipants, addParticipant, updateParticipant, deleteParticipant } from '../services/db';
+import { updateEvent, subscribeToEvent, deleteEvent, subscribeToBets, deleteBet, subscribeToFeedback, subscribeToParticipants, addParticipant, updateParticipant, deleteParticipant, saveHallOfFameEntry } from '../services/db';
 import { calculateOdds, calculatePayouts } from '../services/betting';
 import { calculateFinancials, formatCurrency } from '../services/finance';
 import { generateAiLogo } from '../services/ai';
 import SimpleList from './SimpleList';
 import QRCode from "react-qr-code";
+// import html2canvas from 'html2canvas'; // Dynamically imported
+import WinnerCard from './WinnerCard';
+import AdminEventDetailAwarding from './AdminEventDetailAwarding';
 
 export default function AdminEventDetail({ event, onBack, onUpdate }) {
     const [activeTab, setActiveTab] = useState('overview');
@@ -16,6 +19,11 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
     const [currentOdds, setCurrentOdds] = useState({});
     const [feedback, setFeedback] = useState([]);
     const [participants, setParticipants] = useState([]);
+
+    // Winner Card State
+    const [winnerModal, setWinnerModal] = useState({ open: false, participant: null, rank: '', type: 'standard', theme: 'classic' });
+    const [winnerPhoto, setWinnerPhoto] = useState(null);
+    const cardRef = React.useRef(null);
 
     useEffect(() => {
         const unsubscribe = subscribeToParticipants(event.id, (data) => {
@@ -35,6 +43,9 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
     const [showPayoutPreview, setShowPayoutPreview] = useState(false);
     const [previewResults, setPreviewResults] = useState(null);
     const [previewPayouts, setPreviewPayouts] = useState([]);
+
+    // Edit Participant State
+    const [editParticipantModal, setEditParticipantModal] = useState({ open: false, participant: null });
 
     useEffect(() => {
         const unsubscribe = subscribeToBets(event.id, (newBets) => {
@@ -77,55 +88,83 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
 
     return (
         <div className="content-container animate-fade-in" style={{ paddingBottom: '4rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <button onClick={onBack} className="btn-ghost">
-                    ← Zurück
-                </button>
-                <button
-                    onClick={async () => {
-                        if (window.confirm("⚠️ Event wirklich unwiderruflich löschen?")) {
-                            await deleteEvent(localEvent.id);
-                            if (onUpdate) onUpdate(); // Refresh list
-                            onBack(); // Go back
-                        }
-                    }}
-                    style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.5)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                    🗑️ Event löschen
-                </button>
+            {/* HEADER SECTION - NO CARD, JUST TITLE & ACTIONS */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div>
+                    <h2 style={{ fontSize: '2rem', margin: 0, background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        {localEvent.title}
+                    </h2>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                        <button onClick={onBack} className="btn-ghost" style={{ padding: '4px 12px', fontSize: '0.8rem' }}>
+                            ← Zurück
+                        </button>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+                            {activeTab}
+                        </span>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={async () => {
+                            // Security Check (PIN)
+                            const settings = JSON.parse(localStorage.getItem('pitmaster_settings') || '{}');
+                            if (settings.adminPin) {
+                                const input = prompt("🔐 Admin PIN erforderlich zum Löschen:", "");
+                                if (input !== settings.adminPin) {
+                                    alert("❌ Falscher PIN! Löschen abgebrochen.");
+                                    return;
+                                }
+                            }
+
+                            if (window.confirm("⚠️ Event wirklich unwiderruflich löschen?")) {
+                                await deleteEvent(localEvent.id);
+                                if (onUpdate) onUpdate();
+                                onBack();
+                            }
+                        }}
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        🗑️ Löschen
+                    </button>
+                </div>
             </div>
 
-            <div className="glass card">
-                <h2 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-                    {localEvent.title} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>({activeTab.toUpperCase()})</span>
-                </h2>
+            {/* DASHBOARD NAVIGATION (TABS as PILLS) */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', padding: '10px 10px 20px 10px' }}>
+                {['overview', 'finances', 'guests', 'betting', 'feedback', 'shooting', 'broadcast'].map(tab => {
+                    let label = tab;
+                    let icon = '';
+                    if (tab === 'overview') { label = 'Übersicht'; icon = '📋'; }
+                    if (tab === 'finances') { label = 'Finanzen'; icon = '💰'; }
+                    if (tab === 'guests') { label = 'Gäste'; icon = '👥'; }
+                    if (tab === 'betting') { label = 'Wettbüro'; icon = '🎰'; }
+                    if (tab === 'feedback') { label = 'Feedback'; icon = '💬'; }
+                    if (tab === 'shooting') { label = 'Schießstand'; icon = '🔫'; }
+                    if (tab === 'broadcast') { label = 'Broadcast'; icon = '📺'; }
 
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-                    {['overview', 'finances', 'guests', 'betting', 'feedback', 'shooting', 'broadcast'].map(tab => {
-                        let label = tab;
-                        if (tab === 'overview') label = 'Übersicht';
-                        if (tab === 'finances') label = 'Finanzen';
-                        if (tab === 'guests') label = 'Gäste';
-                        if (tab === 'betting') label = 'Wettbüro';
-                        if (tab === 'feedback') label = 'Feedback';
-                        if (tab === 'shooting') label = 'Schießstand';
-                        if (tab === 'broadcast') label = '📣 TV-Broadcast';
+                    const isActive = activeTab === tab;
+                    return (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={isActive ? 'btn-primary' : 'btn-ghost'}
+                            style={{
+                                whiteSpace: 'nowrap',
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                fontSize: '0.9rem',
+                                padding: '8px 16px' // Override large btn padding
+                            }}
+                        >
+                            <span style={{ fontSize: '1.2rem', lineHeight: 0 }}>{icon}</span>
+                            {label}
+                        </button>
+                    )
+                })}
+            </div>
 
-                        return (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                style={{
-                                    background: activeTab === tab ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
-                                    border: 'none', padding: '8px 16px', borderRadius: '8px', color: 'white', cursor: 'pointer', flex: '1 0 auto'
-                                }}
-                            >
-                                {label}
-                            </button>
-                        )
-                    })}
-                </div>
+            {/* CONTENT AREA - DIRECT FLOW, WIDGETS MANAGED INSIDE TABS */}
+            <div className="dashboard-content">
 
                 {/* OVERVIEW TAB (ÜBERSICHT) */}
                 {activeTab === 'overview' && (
@@ -134,24 +173,67 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                             <div style={{ flex: 1, minWidth: '250px' }}>
                                 {localEvent.image ? (
-                                    <div style={{ height: '150px', borderRadius: '12px', marginBottom: '0.5rem', backgroundImage: `url(${localEvent.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                                    <div style={{ height: '150px', borderRadius: '12px', marginBottom: '0.5rem', backgroundImage: `url(${localEvent.image})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}></div>
                                 ) : (
                                     <div style={{ height: '150px', borderRadius: '12px', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Kein Bild</div>
                                 )}
                                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                                     <label className="btn-primary" style={{ flex: 1, textAlign: 'center', fontSize: '0.8rem', padding: '6px', cursor: 'pointer' }}>
                                         📷 Upload
-                                        <input type="file" hidden accept="image/*" onChange={(e) => {
+                                        <input type="file" hidden accept="image/*" onChange={async (e) => {
                                             const file = e.target.files[0];
                                             if (file) {
-                                                if (file.size > 500000) { alert("Max 500KB!"); return; }
-                                                const reader = new FileReader();
-                                                reader.onloadend = async () => {
-                                                    const updated = { ...localEvent, image: reader.result };
+                                                try {
+                                                    // Recursive compression helper
+                                                    const compressImage = (file, maxWidth, quality) => {
+                                                        return new Promise((resolve, reject) => {
+                                                            const reader = new FileReader();
+                                                            reader.readAsDataURL(file);
+                                                            reader.onload = (event) => {
+                                                                const img = new Image();
+                                                                img.src = event.target.result;
+                                                                img.onload = () => {
+                                                                    const canvas = document.createElement('canvas');
+                                                                    let width = img.width;
+                                                                    let height = img.height;
+
+                                                                    if (width > height) {
+                                                                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                                                                    } else {
+                                                                        if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+                                                                    }
+                                                                    canvas.width = width; canvas.height = height;
+                                                                    const ctx = canvas.getContext('2d');
+                                                                    ctx.drawImage(img, 0, 0, width, height);
+                                                                    resolve(canvas.toDataURL('image/jpeg', quality));
+                                                                };
+                                                                img.onerror = reject;
+                                                            };
+                                                            reader.onerror = reject;
+                                                        });
+                                                    };
+
+                                                    // Attempt 1: 600px, 0.7
+                                                    let base64String = await compressImage(file, 600, 0.7);
+
+                                                    // Check size (> 800KB is risky for Firestore 1MB limit)
+                                                    if (base64String.length > 800000) {
+                                                        console.log("Image too large, compressing harder...");
+                                                        // Attempt 2: 500px, 0.5
+                                                        base64String = await compressImage(file, 500, 0.5);
+                                                    }
+
+                                                    if (base64String.length > 950000) {
+                                                        alert("Bild ist leider immer noch zu groß für die Datenbank. Bitte ein kleineres Bild wählen.");
+                                                        return;
+                                                    }
+
+                                                    const updated = { ...localEvent, image: base64String };
                                                     setLocalEvent(updated);
-                                                    await updateEvent(localEvent.id, { image: reader.result });
-                                                };
-                                                reader.readAsDataURL(file);
+                                                    await updateEvent(localEvent.id, { image: base64String });
+                                                } catch (err) {
+                                                    alert("Fehler: " + err.message);
+                                                }
                                             }
                                         }} />
                                     </label>
@@ -218,56 +300,58 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                         </div>
 
                         {/* PLANNING SECTION */}
-                        <h2 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)' }}>Planung & Orga</h2>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-                            {/* Todo List */}
-                            <SimpleList
-                                title="✅ To-Do Liste"
-                                items={localEvent.todoList || []}
-                                onItemAdd={async (text) => {
-                                    const newList = [...(localEvent.todoList || []), { text, done: false }];
-                                    setLocalEvent({ ...localEvent, todoList: newList });
-                                    await updateEvent(localEvent.id, { todoList: newList });
-                                }}
-                                onItemToggle={async (idx) => {
-                                    const newList = [...localEvent.todoList];
-                                    newList[idx].done = !newList[idx].done;
-                                    setLocalEvent({ ...localEvent, todoList: newList });
-                                    await updateEvent(localEvent.id, { todoList: newList });
-                                }}
-                                onItemDelete={async (idx) => {
-                                    const newList = localEvent.todoList.filter((_, i) => i !== idx);
-                                    setLocalEvent({ ...localEvent, todoList: newList });
-                                    await updateEvent(localEvent.id, { todoList: newList });
-                                }}
-                            />
+                        <div style={{ marginBottom: '3rem' }}>
+                            <h2 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Planung & Orga</h2>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                                {/* Todo List */}
+                                <SimpleList
+                                    title="✅ To-Do Liste"
+                                    items={localEvent.todoList || []}
+                                    onItemAdd={async (text) => {
+                                        const newList = [...(localEvent.todoList || []), { text, done: false }];
+                                        setLocalEvent({ ...localEvent, todoList: newList });
+                                        await updateEvent(localEvent.id, { todoList: newList });
+                                    }}
+                                    onItemToggle={async (idx) => {
+                                        const newList = [...localEvent.todoList];
+                                        newList[idx].done = !newList[idx].done;
+                                        setLocalEvent({ ...localEvent, todoList: newList });
+                                        await updateEvent(localEvent.id, { todoList: newList });
+                                    }}
+                                    onItemDelete={async (idx) => {
+                                        const newList = localEvent.todoList.filter((_, i) => i !== idx);
+                                        setLocalEvent({ ...localEvent, todoList: newList });
+                                        await updateEvent(localEvent.id, { todoList: newList });
+                                    }}
+                                />
 
-                            {/* Shopping List */}
-                            <SimpleList
-                                title="🛒 Einkaufsliste"
-                                items={localEvent.shoppingList || []}
-                                placeholder="Was einkaufen?"
-                                onItemAdd={async (text) => {
-                                    const newList = [...(localEvent.shoppingList || []), { text, done: false }];
-                                    setLocalEvent({ ...localEvent, shoppingList: newList });
-                                    await updateEvent(localEvent.id, { shoppingList: newList });
-                                }}
-                                onItemToggle={async (idx) => {
-                                    const newList = [...localEvent.shoppingList];
-                                    newList[idx].done = !newList[idx].done;
-                                    setLocalEvent({ ...localEvent, shoppingList: newList });
-                                    await updateEvent(localEvent.id, { shoppingList: newList });
-                                }}
-                                onItemDelete={async (idx) => {
-                                    const newList = localEvent.shoppingList.filter((_, i) => i !== idx);
-                                    setLocalEvent({ ...localEvent, shoppingList: newList });
-                                    await updateEvent(localEvent.id, { shoppingList: newList });
-                                }}
-                            />
+                                {/* Shopping List */}
+                                <SimpleList
+                                    title="🛒 Einkaufsliste"
+                                    items={localEvent.shoppingList || []}
+                                    placeholder="Was einkaufen?"
+                                    onItemAdd={async (text) => {
+                                        const newList = [...(localEvent.shoppingList || []), { text, done: false }];
+                                        setLocalEvent({ ...localEvent, shoppingList: newList });
+                                        await updateEvent(localEvent.id, { shoppingList: newList });
+                                    }}
+                                    onItemToggle={async (idx) => {
+                                        const newList = [...localEvent.shoppingList];
+                                        newList[idx].done = !newList[idx].done;
+                                        setLocalEvent({ ...localEvent, shoppingList: newList });
+                                        await updateEvent(localEvent.id, { shoppingList: newList });
+                                    }}
+                                    onItemDelete={async (idx) => {
+                                        const newList = localEvent.shoppingList.filter((_, i) => i !== idx);
+                                        setLocalEvent({ ...localEvent, shoppingList: newList });
+                                        await updateEvent(localEvent.id, { shoppingList: newList });
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         {/* Bring List */}
-                        <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                        <div className="glass" style={{ marginTop: '2rem', padding: '1.5rem' }}>
                             <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>🎁 Mitbring-Liste (Wer bringt was?)</h3>
 
                             <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1rem' }}>
@@ -317,6 +401,68 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                 {/* FINANCES TAB */}
                 {activeTab === 'finances' && (
                     <div>
+                        <div className="glass" style={{ marginBottom: '2rem', padding: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {localEvent.image ? (
+                                <img src={localEvent.image} alt="Event Logo" style={{ width: '100px', height: '100px', objectFit: 'contain', background: 'rgba(0,0,0,0.2)', borderRadius: '12px' }} />
+                            ) : (
+                                <div style={{ width: '100px', height: '100px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>📅</div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <h4 style={{ margin: '0 0 0.5rem 0' }}>Event Logo ändern</h4>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="input-field"
+                                    style={{ marginBottom: 0 }}
+                                    onChange={async (e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            try {
+                                                // Compression logic
+                                                const compressImage = (file, maxWidth, quality) => {
+                                                    return new Promise((resolve, reject) => {
+                                                        const reader = new FileReader();
+                                                        reader.readAsDataURL(file);
+                                                        reader.onload = (event) => {
+                                                            const img = new Image();
+                                                            img.src = event.target.result;
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                let width = img.width;
+                                                                let height = img.height;
+                                                                if (width > height) {
+                                                                    if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                                                                } else {
+                                                                    if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+                                                                }
+                                                                canvas.width = width; canvas.height = height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx.drawImage(img, 0, 0, width, height);
+                                                                resolve(canvas.toDataURL('image/jpeg', quality));
+                                                            };
+                                                            img.onerror = reject;
+                                                        };
+                                                        reader.onerror = reject;
+                                                    });
+                                                };
+
+                                                let base64String = await compressImage(file, 600, 0.7);
+                                                if (base64String.length > 800000) {
+                                                    base64String = await compressImage(file, 500, 0.5);
+                                                }
+
+                                                await updateEvent(localEvent.id, { image: base64String });
+                                                setLocalEvent({ ...localEvent, image: base64String }); // Local update
+                                                alert("Logo erfolgreich aktualisiert! 🖼️");
+                                            } catch (err) {
+                                                alert("Fehler beim Upload: " + err.message);
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
                                 <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Gesamtkosten</div>
@@ -799,95 +945,12 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                             </p>
                         </div>
 
-                        {/* AWARDING SECTION */}
-                        <div className="glass" style={{ padding: '0', marginBottom: '2rem' }}>
-                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.1), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0 }}>🏆 Siegerehrung & Urkunden</h3>
-                                <select
-                                    style={{ background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '5px', borderRadius: '5px' }}
-                                    id="certificateThemeSelector"
-                                    defaultValue="classic"
-                                >
-                                    <option value="classic">🏛️ Klassisch</option>
-                                    <option value="western">🤠 Western</option>
-                                    <option value="bbq">🥩 BBQ Master</option>
-                                </select>
-                            </div>
-
-                            <div style={{ padding: '1rem' }}>
-                                {/* TOP 3 */}
-                                {participants.sort((a, b) => {
-                                    const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
-                                    const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
-                                    return sB - sA;
-                                }).slice(0, 3).map((p, i) => (
-                                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: i === 0 ? '1px solid var(--accent-gold)' : 'none' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{ fontSize: '2rem' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</div>
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{p.name}</div>
-                                                <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
-                                                    {i + 1}. Platz • {(p.round1 || []).reduce((x, y) => x + y, 0) + (p.round2 || []).reduce((x, y) => x + y, 0)} Punkte
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            className="btn-primary"
-                                            onClick={() => {
-                                                const theme = document.getElementById('certificateThemeSelector').value;
-                                                import('../services/certificate').then(mod => {
-                                                    mod.generateCertificate(localEvent, p, `${i + 1}. Platz`, 'winner', theme);
-                                                });
-                                            }}
-                                            style={{ fontSize: '0.8rem', padding: '8px 16px' }}
-                                        >
-                                            📄 Urkunde
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {/* LOSER (LAST PLACE) */}
-                                {participants.length > 3 && (
-                                    <>
-                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '1rem 0' }}></div>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div style={{ fontSize: '2rem' }}>🩹</div>
-                                                <div>
-                                                    <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                                                        {participants.sort((a, b) => {
-                                                            const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
-                                                            const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
-                                                            return sB - sA;
-                                                        })[participants.length - 1].name}
-                                                    </div>
-                                                    <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
-                                                        Letzter Platz (Trostpreis)
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button
-                                                className="btn-primary"
-                                                onClick={() => {
-                                                    const theme = document.getElementById('certificateThemeSelector').value;
-                                                    const loser = participants.sort((a, b) => {
-                                                        const sA = (a.round1 || []).reduce((x, y) => x + y, 0) + (a.round2 || []).reduce((x, y) => x + y, 0);
-                                                        const sB = (b.round1 || []).reduce((x, y) => x + y, 0) + (b.round2 || []).reduce((x, y) => x + y, 0);
-                                                        return sB - sA;
-                                                    })[participants.length - 1];
-                                                    import('../services/certificate').then(mod => {
-                                                        mod.generateCertificate(localEvent, loser, "Teilnehmer der Herzen", 'loser', theme);
-                                                    });
-                                                }}
-                                                style={{ fontSize: '0.8rem', padding: '8px 16px', background: '#78350f' }}
-                                            >
-                                                📄 Trost-Urkunde
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
+                        <AdminEventDetailAwarding
+                            localEvent={localEvent}
+                            participants={participants}
+                            setWinnerModal={setWinnerModal}
+                            setWinnerPhoto={setWinnerPhoto}
+                        />
 
                         {/* Existing content continues... */}
 
@@ -905,26 +968,75 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                             >
                                 📺 TV-View öffnen
                             </button>
+                            <button
+                                className="btn-primary"
+                                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--accent-secondary)' }}
+                                onClick={() => {
+                                    const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}#/admin/shooting-remote/${localEvent.id}`;
+                                    window.open(url, '_blank');
+                                }}
+                            >
+                                📱 Handy-Remote
+                            </button>
                         </div>
 
 
                         {/* ADD PARTICIPANT */}
                         <div className="glass" style={{ padding: '2rem', marginBottom: '2rem' }}>
                             <h3 style={{ marginTop: 0 }}>Teilnehmer hinzufügen</h3>
-                            <form onSubmit={(e) => {
+                            <form onSubmit={async (e) => {
                                 e.preventDefault();
                                 const name = e.target.name.value;
                                 const file = e.target.file.files[0];
+                                const submitBtn = e.target.querySelector('button[type="submit"]');
 
                                 if (name) {
                                     if (file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                            const base64String = reader.result;
-                                            addParticipant(localEvent.id, name, base64String);
+                                        // Disable button
+                                        const originalText = submitBtn.innerText;
+                                        submitBtn.disabled = true;
+                                        submitBtn.innerText = "Komprimiere...";
+
+                                        try {
+                                            // Resize Image Logic (Optimized)
+                                            const compressImage = (file, maxWidth, quality) => {
+                                                return new Promise((resolve, reject) => {
+                                                    const reader = new FileReader();
+                                                    reader.readAsDataURL(file);
+                                                    reader.onload = (event) => {
+                                                        const img = new Image();
+                                                        img.src = event.target.result;
+                                                        img.onload = () => {
+                                                            const canvas = document.createElement('canvas');
+                                                            let width = img.width;
+                                                            let height = img.height;
+                                                            if (width > height) {
+                                                                if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                                                            } else {
+                                                                if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+                                                            }
+                                                            canvas.width = width; canvas.height = height;
+                                                            const ctx = canvas.getContext('2d');
+                                                            ctx.drawImage(img, 0, 0, width, height);
+                                                            resolve(canvas.toDataURL('image/jpeg', quality));
+                                                        };
+                                                        img.onerror = reject;
+                                                    };
+                                                    reader.onerror = reject;
+                                                });
+                                            };
+
+                                            let base64String = await compressImage(file, 600, 0.7);
+                                            if (base64String.length > 800000) base64String = await compressImage(file, 500, 0.5);
+
+                                            await addParticipant(localEvent.id, name, base64String);
                                             e.target.reset();
-                                        };
-                                        reader.readAsDataURL(file);
+                                        } catch (error) {
+                                            alert("Fehler beim Bild-Upload: " + error.message);
+                                        } finally {
+                                            submitBtn.disabled = false;
+                                            submitBtn.innerText = originalText;
+                                        }
                                     } else {
                                         addParticipant(localEvent.id, name);
                                         e.target.reset();
@@ -946,13 +1058,29 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                             {participants.sort((a, b) => a.timestamp - b.timestamp).map(p => (
                                 <div key={p.id} style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{p.name}</div>
-                                        <button
-                                            onClick={() => { if (window.confirm('Löschen?')) deleteParticipant(localEvent.id, p.id); }}
-                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.5 }}
-                                        >
-                                            🗑️
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            {p.image ? (
+                                                <img src={p.image} alt={p.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-primary)' }} />
+                                            ) : (
+                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
+                                            )}
+                                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{p.name}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => setEditParticipantModal({ open: true, participant: p })}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                                                title="Bearbeiten"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                onClick={() => { if (window.confirm('Löschen?')) deleteParticipant(localEvent.id, p.id); }}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.5 }}
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
@@ -1006,127 +1134,398 @@ export default function AdminEventDetail({ event, onBack, onUpdate }) {
                             ))}
                             {participants.length === 0 && <div style={{ padding: '3rem', textAlign: 'center', opacity: 0.5 }}>Noch keine Teilnehmer.</div>}
                         </div>
-                    </div>
-                )}
+                    </div >
+                )
+                }
 
                 {/* BROADCAST TAB */}
-                {activeTab === 'broadcast' && (
-                    <div className="animate-fade-in">
-                        <div className="glass" style={{ padding: '2rem' }}>
-                            <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                                <h3 style={{ marginTop: 0 }}>📢 TV-Nachricht senden</h3>
-                                <p style={{ opacity: 0.7 }}>
-                                    Schicke Nachrichten direkt auf den Fernseher.
-                                </p>
+                {
+                    activeTab === 'broadcast' && (
+                        <div className="animate-fade-in">
+                            <div className="glass" style={{ padding: '2rem' }}>
+                                <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                                    <h3 style={{ marginTop: 0 }}>📢 TV-Broadcast Control</h3>
+                                    <p style={{ opacity: 0.7 }}>
+                                        Steuere Ticker und Vollbild-Overlays unabhängig voneinander.
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+
+                                    {/* --- TICKER CONTROL --- */}
+                                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            📟 Laufschrift (Ticker)
+                                            {localEvent.broadcast?.ticker?.active && <span style={{ fontSize: '0.7rem', color: 'var(--accent-success)', border: '1px solid currentColor', padding: '2px 6px', borderRadius: '4px' }}>ON AIR</span>}
+                                        </h4>
+
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const fd = new FormData(e.target);
+                                            const message = fd.get('message');
+                                            const speed = parseInt(fd.get('speed'));
+                                            const active = fd.get('active') === 'on';
+
+                                            const newTickerState = { active, message, speed };
+                                            const updatedBroadcast = {
+                                                ...(localEvent.broadcast || {}),
+                                                ticker: newTickerState
+                                            };
+
+                                            await updateEvent(localEvent.id, { broadcast: updatedBroadcast });
+                                            setLocalEvent({ ...localEvent, broadcast: updatedBroadcast });
+                                            if (active) alert("Ticker aktualisiert!");
+                                        }}>
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', opacity: 0.8 }}>Nachricht</label>
+                                                <textarea
+                                                    name="message"
+                                                    required
+                                                    className="input-field"
+                                                    placeholder="Willkommen zur Party! +++ Drinks an der Bar +++"
+                                                    style={{ minHeight: '80px' }}
+                                                    defaultValue={localEvent.broadcast?.ticker?.message || ''}
+                                                />
+                                            </div>
+
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem', opacity: 0.8 }}>
+                                                    Geschwindigkeit: <strong>{localEvent.broadcast?.ticker?.speed || 5}</strong>
+                                                </label>
+                                                <input
+                                                    type="range"
+                                                    name="speed"
+                                                    min="1"
+                                                    max="10"
+                                                    defaultValue={localEvent.broadcast?.ticker?.speed || 5}
+                                                    style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
+                                                    onChange={(e) => {
+                                                        // Optimistic UI update for slider label
+                                                        e.target.previousElementSibling.querySelector('strong').innerText = e.target.value;
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                <label className="btn-ghost" style={{ flex: 1, cursor: 'pointer', borderColor: localEvent.broadcast?.ticker?.active ? 'var(--accent-success)' : 'var(--glass-border)' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        name="active"
+                                                        defaultChecked={localEvent.broadcast?.ticker?.active}
+                                                        style={{ marginRight: '8px' }}
+                                                    />
+                                                    {localEvent.broadcast?.ticker?.active ? 'Aktiviert' : 'Einschalten'}
+                                                </label>
+                                                <button type="submit" className="btn-primary" style={{ flex: 1 }}>
+                                                    💾 Speichern
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* --- OVERLAY CONTROL --- */}
+                                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            🚨 Vollbild Alarm
+                                            {localEvent.broadcast?.overlay?.active && <span style={{ fontSize: '0.7rem', color: 'var(--accent-danger)', border: '1px solid currentColor', padding: '2px 6px', borderRadius: '4px' }}>LIVE</span>}
+                                        </h4>
+
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const fd = new FormData(e.target);
+                                            const message = fd.get('message');
+                                            const durationMinutes = parseFloat(fd.get('duration')); // Slider value is messy, let's rely on calculation
+
+                                            // Manual handling of slider messiness
+                                            const sliderVal = document.getElementById('overlayDurationSlider').value;
+                                            const isPermanent = document.getElementById('overlayPermanentCheckbox').checked;
+
+                                            // duration in seconds
+                                            let durationSeconds = 10;
+                                            if (sliderVal <= 60) durationSeconds = parseInt(sliderVal);
+                                            else durationSeconds = parseInt(sliderVal); // Slider is in seconds for simplicity: 10 to 1800 (30min)
+
+                                            const newOverlayState = {
+                                                active: true,
+                                                message,
+                                                duration: durationSeconds,
+                                                permanent: isPermanent,
+                                                timestamp: Date.now()
+                                            };
+
+                                            const updatedBroadcast = {
+                                                ...(localEvent.broadcast || {}),
+                                                overlay: newOverlayState
+                                            };
+
+                                            await updateEvent(localEvent.id, { broadcast: updatedBroadcast });
+                                            setLocalEvent({ ...localEvent, broadcast: updatedBroadcast });
+                                            alert("🚨 Alarm gesendet!");
+                                        }}>
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.3rem', opacity: 0.8 }}>Nachricht (kurz & knapp)</label>
+                                                <textarea
+                                                    name="message"
+                                                    required
+                                                    className="input-field"
+                                                    placeholder="ESSEN IST FERTIG! 🍔"
+                                                    style={{ minHeight: '80px', fontSize: '1.2rem', textAlign: 'center', fontWeight: 'bold' }}
+                                                    defaultValue={localEvent.broadcast?.overlay?.message || ''}
+                                                />
+                                            </div>
+
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem', opacity: 0.8 }}>
+                                                    Anzeigedauer: <strong id="overlayDurationLabel">{localEvent.broadcast?.overlay?.duration || 10}s</strong>
+                                                </label>
+                                                <input
+                                                    id="overlayDurationSlider"
+                                                    type="range"
+                                                    min="5"
+                                                    max="1800"
+                                                    step="5"
+                                                    className="slider"
+                                                    defaultValue={localEvent.broadcast?.overlay?.duration || 10}
+                                                    style={{ width: '100%', accentColor: 'var(--accent-danger)' }}
+                                                    onInput={(e) => {
+                                                        const val = parseInt(e.target.value);
+                                                        let label = `${val}s`;
+                                                        if (val > 60) label = `${Math.floor(val / 60)}m ${val % 60}s`;
+                                                        document.getElementById('overlayDurationLabel').innerText = label;
+                                                        // Toggle permanent check off if slider moves
+                                                        if (document.getElementById('overlayPermanentCheckbox').checked) {
+                                                            document.getElementById('overlayPermanentCheckbox').checked = false;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                    <input
+                                                        id="overlayPermanentCheckbox"
+                                                        type="checkbox"
+                                                        defaultChecked={localEvent.broadcast?.overlay?.permanent}
+                                                        onChange={(e) => {
+                                                            const slider = document.getElementById('overlayDurationSlider');
+                                                            const label = document.getElementById('overlayDurationLabel');
+                                                            if (e.target.checked) {
+                                                                slider.disabled = true;
+                                                                label.innerText = "∞ (Dauerhaft)";
+                                                            } else {
+                                                                slider.disabled = false;
+                                                                label.innerText = `${slider.value}s`;
+                                                            }
+                                                        }}
+                                                    />
+                                                    Dauerhaft anzeigen (bis manuell beendet)
+                                                </label>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn-ghost"
+                                                    style={{ flex: 1, color: 'var(--accent-danger)', borderColor: 'var(--accent-danger)' }}
+                                                    onClick={async () => {
+                                                        const updatedBroadcast = {
+                                                            ...(localEvent.broadcast || {}),
+                                                            overlay: { active: false }
+                                                        };
+                                                        await updateEvent(localEvent.id, { broadcast: updatedBroadcast });
+                                                        setLocalEvent({ ...localEvent, broadcast: updatedBroadcast });
+                                                    }}
+                                                >
+                                                    STOP 🛑
+                                                </button>
+                                                <button type="submit" className="btn-primary" style={{ flex: 2, background: 'var(--accent-danger)', borderColor: 'var(--accent-danger)' }}>
+                                                    🚨 ALARM SENDEN
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            </div >
+            {/* WINNER CARD MODAL */}
+            {
+                winnerModal.open && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '2rem' }}>
+                        <div className="glass" style={{ background: '#1e293b', border: '1px solid gold', maxWidth: '600px', width: '100%', padding: '1rem', position: 'relative' }}>
+                            <button
+                                onClick={() => setWinnerModal({ ...winnerModal, open: false })}
+                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer' }}
+                            >
+                                ✕
+                            </button>
+
+                            <h2 style={{ textAlign: 'center', color: 'gold', marginTop: 0 }}>📸 Hall of Fame Karte</h2>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>1. Foto machen/hochladen</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = () => setWinnerPhoto(reader.result);
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }}
+                                    className="input-field"
+                                />
                             </div>
 
-                            <form onSubmit={async (e) => {
-                                e.preventDefault();
-                                const fd = new FormData(e.target);
-                                const message = fd.get('message');
-                                const type = fd.get('type');
-                                const speed = parseInt(fd.get('speed') || 5);
-
-                                // Send to DB
-                                await updateEvent(localEvent.id, {
-                                    broadcast: {
-                                        active: true,
-                                        message,
-                                        type,
-                                        speed,
-                                        timestamp: Date.now()
-                                    }
-                                });
-                                setLocalEvent({ ...localEvent, broadcast: { active: true, message, type, speed, timestamp: Date.now() } });
-                                alert("Nachricht gesendet!");
-                            }}>
-                                <div style={{ marginBottom: '1.5rem' }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Deine Nachricht:</label>
-                                    <textarea
-                                        name="message"
-                                        required
-                                        className="input-field"
-                                        placeholder="z.B. Das Buffet ist eröffnet! 🍖"
-                                        style={{ width: '100%', minHeight: '100px', fontSize: '1.2rem', textAlign: 'center' }}
-                                        defaultValue={localEvent.broadcast?.message || ''}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', overflow: 'hidden', border: '1px solid #333' }}>
+                                {/* The Card to Capture */}
+                                <div style={{ transform: 'scale(0.8)', transformOrigin: 'top center' }}>
+                                    <WinnerCard
+                                        ref={cardRef}
+                                        participant={winnerModal.participant}
+                                        event={localEvent}
+                                        rank={winnerModal.rank}
+                                        theme={winnerModal.theme}
+                                        photoUrl={winnerPhoto}
                                     />
                                 </div>
+                            </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                                    <label style={{
-                                        cursor: 'pointer',
-                                        padding: '1rem',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        borderRadius: '12px',
-                                        border: '1px solid var(--glass-border)',
-                                        textAlign: 'center'
-                                    }}>
-                                        <input type="radio" name="type" value="ticker" defaultChecked={localEvent.broadcast?.type !== 'overlay'} style={{ marginRight: '0.5rem' }} />
-                                        <strong>Lauftext (Ticker)</strong>
-                                        <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>Dezent am unteren Rand</div>
-                                    </label>
-
-                                    <label style={{
-                                        cursor: 'pointer',
-                                        padding: '1rem',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        borderRadius: '12px',
-                                        border: '1px solid var(--glass-border)',
-                                        textAlign: 'center'
-                                    }}>
-                                        <input type="radio" name="type" value="overlay" defaultChecked={localEvent.broadcast?.type === 'overlay'} style={{ marginRight: '0.5rem' }} />
-                                        <strong>Vollbild (Alarm)</strong>
-                                        <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>Unterbricht alles!</div>
-                                    </label>
-                                </div>
-
-                                {/* SPEED SLIDER (Ticker Only) */}
-                                <div style={{ marginBottom: '2rem' }}>
-                                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                        Laufgeschwindigkeit: <strong>{localEvent.broadcast?.speed || 5}</strong>
-                                    </label>
-                                    <input
-                                        type="range"
-                                        name="speed"
-                                        min="1"
-                                        max="10"
-                                        defaultValue={localEvent.broadcast?.speed || 5}
-                                        style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
-                                    />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', opacity: 0.7 }}>
-                                        <span>Langsam</span>
-                                        <span>Schnell</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button
-                                        type="button"
-                                        className="btn-ghost"
-                                        style={{ flex: 1, color: 'var(--accent-danger)', borderColor: 'var(--accent-danger)' }}
-                                        onClick={async () => {
-                                            await updateEvent(localEvent.id, { broadcast: { active: false } });
-                                            setLocalEvent({ ...localEvent, broadcast: { active: false } });
-                                        }}
-                                    >
-                                        🛑 Beenden / Löschen
-                                    </button>
-                                    <button type="submit" className="btn-primary" style={{ flex: 2, fontSize: '1.1rem' }}>
-                                        📡 Senden
-                                    </button>
-                                </div>
-                            </form>
-
-                            {/* ACTIVE INDICATOR */}
-                            {localEvent.broadcast?.active && (
-                                <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--accent-success)', borderRadius: '12px', textAlign: 'center' }}>
-                                    <strong style={{ color: 'var(--accent-success)' }}>● LIVE:</strong> "{localEvent.broadcast.message}" ({localEvent.broadcast.type === 'overlay' ? 'Vollbild' : 'Ticker'})
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <button
+                                    className="btn-primary"
+                                    onClick={async () => {
+                                        if (cardRef.current) {
+                                            const html2canvas = (await import('html2canvas')).default;
+                                            html2canvas(cardRef.current, { useCORS: true, scale: 2 }).then(canvas => {
+                                                const link = document.createElement('a');
+                                                link.download = `WinnerCard_${winnerModal.participant.name}.png`;
+                                                link.href = canvas.toDataURL();
+                                                link.click();
+                                            });
+                                        }
+                                    }}
+                                >
+                                    💾 Herunterladen
+                                </button>
+                                <button
+                                    className="btn-primary"
+                                    onClick={async () => {
+                                        if (cardRef.current) {
+                                            const btn = document.activeElement;
+                                            const originalText = btn.innerText;
+                                            btn.innerText = "⏳ Speichere...";
+                                            const html2canvas = (await import('html2canvas')).default;
+                                            html2canvas(cardRef.current, { useCORS: true, scale: 2 }).then(async canvas => {
+                                                const imgData = canvas.toDataURL();
+                                                try {
+                                                    await saveHallOfFameEntry({
+                                                        eventId: localEvent.id,
+                                                        eventName: localEvent.title,
+                                                        participantName: winnerModal.participant.name,
+                                                        rank: winnerModal.rank,
+                                                        type: winnerModal.type,
+                                                        theme: winnerModal.theme,
+                                                        date: localEvent.date,
+                                                        imageData: imgData
+                                                    });
+                                                    alert("🏆 In Hall of Fame gespeichert!");
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    alert("Fehler beim Speichern: " + err.message);
+                                                }
+                                                btn.innerText = originalText;
+                                            });
+                                        }
+                                    }}
+                                >
+                                    🏆 Hall of Fame
+                                </button>
+                            </div>
                         </div>
                     </div>
-                )}
-            </div>
+                )
+            }
+            {/* EDIT PARTICIPANT MODAL */}
+            {editParticipantModal.open && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="glass" style={{ padding: '2rem', maxWidth: '400px', width: '90%' }}>
+                        <h3 style={{ marginTop: 0 }}>Teilnehmer bearbeiten</h3>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const newName = e.target.name.value;
+                            const file = e.target.file.files[0];
+                            const pId = editParticipantModal.participant.id;
+                            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+                            submitBtn.disabled = true;
+                            submitBtn.innerText = "Speichere...";
+
+                            try {
+                                const dataToUpdate = { name: newName };
+
+                                if (file) {
+                                    const compressImage = (file, maxWidth, quality) => {
+                                        return new Promise((resolve, reject) => {
+                                            const reader = new FileReader();
+                                            reader.readAsDataURL(file);
+                                            reader.onload = (event) => {
+                                                const img = new Image();
+                                                img.src = event.target.result;
+                                                img.onload = () => {
+                                                    const canvas = document.createElement('canvas');
+                                                    let width = img.width;
+                                                    let height = img.height;
+                                                    if (width > height) {
+                                                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                                                    } else {
+                                                        if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+                                                    }
+                                                    canvas.width = width; canvas.height = height;
+                                                    const ctx = canvas.getContext('2d');
+                                                    ctx.drawImage(img, 0, 0, width, height);
+                                                    resolve(canvas.toDataURL('image/jpeg', quality));
+                                                };
+                                                img.onerror = reject;
+                                            };
+                                            reader.onerror = reject;
+                                        });
+                                    };
+                                    let base64 = await compressImage(file, 600, 0.7);
+                                    if (base64.length > 800000) base64 = await compressImage(file, 500, 0.5);
+                                    dataToUpdate.image = base64;
+                                }
+
+                                await updateParticipant(localEvent.id, pId, dataToUpdate);
+                                setEditParticipantModal({ open: false, participant: null });
+                            } catch (err) {
+                                alert("Fehler: " + err.message);
+                            } finally {
+                                submitBtn.disabled = false;
+                                submitBtn.innerText = "Speichern";
+                            }
+                        }}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Name</label>
+                                <input name="name" className="input-field" defaultValue={editParticipantModal.participant.name} />
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Bild (optional)</label>
+                                <input type="file" name="file" className="input-field" accept="image/*" />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button type="button" className="btn-ghost" onClick={() => setEditParticipantModal({ open: false, participant: null })} style={{ flex: 1 }}>Abbrechen</button>
+                                <button type="submit" className="btn-primary" style={{ flex: 1 }}>Speichern</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

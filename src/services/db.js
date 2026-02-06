@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDoc, doc, updateDoc, arrayUnion, onSnapshot, deleteDoc, setDoc, query, where, getDocs } from 'firebase/firestore';
 
 const EVENTS_COLLECTION = 'events';
 
@@ -106,6 +106,21 @@ export const subscribeToParticipants = (eventId, callback) => {
     });
 };
 
+// Check and Add Participant (Avoid Duplicates)
+export const checkAndAddParticipant = async (eventId, name) => {
+    const ref = collection(db, EVENTS_COLLECTION, eventId, 'participants');
+    // Simple query to check if name exists
+    const q = query(ref, where("name", "==", name));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].id; // Return existing ID
+    }
+
+    // Not found, add new
+    return await addParticipant(eventId, name);
+};
+
 // Add Participant
 export const addParticipant = async (eventId, name, image = null) => {
     const ref = collection(db, EVENTS_COLLECTION, eventId, 'participants');
@@ -163,13 +178,29 @@ export const rsvpToEvent = async (eventId, guestData) => {
         if (!snap.exists()) throw new Error("Event not found");
 
         let guests = snap.data().guests || [];
-        guests = guests.filter(g => g.name !== guestData.name);
+        const plusOneName = guestData.name + " +1";
 
+        // Remove existing entries for this user and their potential +1
+        guests = guests.filter(g => g.name !== guestData.name && g.name !== plusOneName);
+
+        // Add Main Guest
         guests.push({
             ...guestData,
             hasPaid: false,
             contribution: 0
         });
+
+        // Add Plus One if applicable
+        if (guestData.status === 'accepted' && guestData.hasPlusOne) {
+            guests.push({
+                name: plusOneName,
+                status: 'accepted',
+                isPlusOne: true,
+                hasPaid: false,
+                contribution: 0,
+                timestamp: Date.now()
+            });
+        }
 
         await updateDoc(docRef, { guests });
     } catch (e) {
@@ -181,4 +212,36 @@ export const rsvpToEvent = async (eventId, guestData) => {
 export const updateEvent = async (eventId, data) => {
     const docRef = doc(db, EVENTS_COLLECTION, eventId);
     await updateDoc(docRef, data);
+};
+
+export const addToBringList = async (eventId, itemData) => {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId);
+    await updateDoc(docRef, {
+        bringList: arrayUnion(itemData)
+    });
+};
+
+// --- HALL OF FAME FUNCTIONS ---
+
+export const saveHallOfFameEntry = async (entryData) => {
+    // entryData: { eventId, eventName, participantName, rank, type, theme, imageData, date }
+    const ref = collection(db, 'hallOfFame');
+    await addDoc(ref, {
+        ...entryData,
+        timestamp: Date.now()
+    });
+};
+
+export const getHallOfFameEntries = async (limitCount = 20) => {
+    const ref = collection(db, 'hallOfFame');
+    // For now, simple fetch. Ideally order by timestamp desc.
+    const snapshot = await import('firebase/firestore').then(mod => {
+        const { query, orderBy, limit, getDocs } = mod;
+        const q = query(ref, orderBy('timestamp', 'desc'), limit(limitCount));
+        return getDocs(q);
+    });
+
+    const data = [];
+    snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+    return data;
 };

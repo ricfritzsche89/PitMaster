@@ -1,0 +1,235 @@
+/* Dashboard Layout */
+:root {
+  --sidebar-width: 280px;
+  --bg-dark: #000000;
+  /* Pure Black */
+  --bg-panel: #050505;
+  /* Almost Black */
+  --accent-gold: var(--accent-primary);
+  /* Use global green */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+}
+
+.dashboard-container {
+  display: flex;
+  height: 100vh;
+  background-color: transparent;
+  /* Was var(--bg-dark) - allow body bg to show */
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  width: var(--sidebar-width);
+  background: rgba(0, 0, 0, 0.2);
+  /* Very subtle tint */
+  backdrop-filter: blur(10px);
+  /* Mild blur for readability */
+  border-right: 1px solid rgba(29, 185, 84, 0.3);
+  /* Neon Border */
+  box-shadow: 4px 0 15px rgba(29, 185, 84, 0.05);
+  /* Subtle glow right */
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  z-index: 50;
+  transition: transform 0.3s ease;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  margin-bottom: 3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(29, 185, 84, 0.3);
+}
+
+/* NEW MENU STYLE - Radio Glider adaption */
+.radio-container {
+  --main-color: var(--accent-primary);
+  --main-color-opacity: rgba(29, 185, 84, 0.1);
+  --total-radio: 3;
+  /* Events, HOF, Settings */
+
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 0.5rem;
+  margin-bottom: auto;
+  /* Push profile down */
+}
+
+/* Hide real radios */
+.radio-container input[type="radio"] {
+  display: none;
+}
+
+.radio-container .glider-container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: calc(100% / var(--total-radio) * var(--total-radio));
+  /* Full height of items */
+  width: 2px;
+  background: linear-gradient(0deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(50, 50, 50, 1) 50%,
+      rgba(0, 0, 0, 0) 100%);
+}
+
+.radio-container .glider-container .glider {
+  position: relative;
+  height: 60px;
+  /* Approx height of one nav item */
+  width: 100%;
+  background: linear-gradient(0deg,
+      rgba(0, 0, 0, 0) 0%,
+      var(--main-color) 50%,
+      rgba(0, 0, 0, 0) 100%);
+  transition: transform 0.3s cubic-bezier(0.37, 1.95, 0.66, 0.56);
+}
+
+.radio-container .glider-container .glider::before {
+  content: "";
+  position: absolute;
+  height: 60%;
+  width: 400%;
+  /* Wider glow */
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--main-color);
+  filter: blur(8px);
+  opacity: 0.7;
+}
+
+.radio-container label {
+  cursor: pointer;
+  padding: 1rem;
+  height: 60px;
+  /* Fixed height for glider calc */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: grey;
+  transition: all 0.3s ease-in-out;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.radio-container label:hover {
+  color: white;
+}
+
+.radio-container input:checked+label {
+  color: var(--main-color);
+  text-shadow: 0 0 10px var(--main-color-opacity);
+}
+
+/* Glider Positions */
+.radio-container input:nth-of-type(1):checked~.glider-container .glider {
+  transform: translateY(0);
+}
+
+.radio-container input:nth-of-type(2):checked~.glider-container .glider {
+  transform: translateY(60px);
+  /* Move down 1 item height */
+}
+
+.radio-container input:nth-of-type(3):checked~.glider-container .glider {
+  transform: translateY(120px);
+  /* Move down 2 item heights */
+}
+
+
+.user-profile {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(29, 185, 84, 0.3);
+  /* Neon Border */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  position: relative;
+  background: transparent;
+  /* Was #000 - allow body bg to show */
+  /* User wanted simpler dark bg */
+}
+
+.top-bar {
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  /* Very subtle tint */
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(29, 185, 84, 0.3);
+  box-shadow: 0 4px 15px rgba(29, 185, 84, 0.05);
+  /* Subtle glow downwards */
+}
+
+.page-title {
+  font-family: 'Neon Glow', sans-serif;
+  font-size: 1.5rem;
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px rgba(29, 185, 84, 0.2);
+}
+
+.content-wrapper {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Mobile Toggle */
+.mobile-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    height: 100%;
+    transform: translateX(-100%);
+    background: #000;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .mobile-toggle {
+    display: block;
+  }
+
+  .main-content {
+    width: 100%;
+  }
+}

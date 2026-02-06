@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getEvent, rsvpToEvent, updateEvent } from '../services/db';
+import { subscribeToEvent, rsvpToEvent, updateEvent, addToBringList, checkAndAddParticipant } from '../services/db';
 
 export default function GuestView({ partyId }) {
     const [eventData, setEventData] = useState(null);
@@ -9,36 +9,33 @@ export default function GuestView({ partyId }) {
     const [hasResponded, setHasResponded] = useState(false);
 
     useEffect(() => {
-        loadEvent();
-        const stored = localStorage.getItem(`pitmaster_guest_${partyId}`);
-        if (stored) {
-            setGuestName(stored);
-            // Optionally auto-restore state if we knew if they responded...
-            // But 'hasResponded' depends on what the DB says for this name.
-            // Ideally we check the event guest list for this name?
-            // For now, PRE-FILLING the name is huge help.
-        }
+        setLoading(true);
+        // Real-time subscription
+        const unsubscribe = subscribeToEvent(partyId, (data) => {
+            if (data) {
+                setEventData(data);
+                // Check RSVP status
+                const stored = localStorage.getItem(`pitmaster_guest_${partyId}`);
+                if (stored) {
+                    setGuestName(stored);
+                    if (data.guests) {
+                        const me = data.guests.find(g => g.name === stored);
+                        if (me) setHasResponded(true);
+                    }
+                }
+            } else {
+                setError("Event nicht gefunden oder abgelaufen.");
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [partyId]);
 
-    const loadEvent = async () => {
-        try {
-            setLoading(true);
-            const data = await getEvent(partyId);
-            setEventData(data);
+    // Removed legacy loadEvent
 
-            // Check if I already responded?
-            const stored = localStorage.getItem(`pitmaster_guest_${partyId}`);
-            if (stored && data.guests) {
-                const me = data.guests.find(g => g.name === stored);
-                if (me) setHasResponded(true);
-            }
-        } catch (e) {
-            setError("Event nicht gefunden oder abgelaufen.");
-        }
-        setLoading(false);
-    };
 
-    const handleRSVP = async (status, participates = false) => {
+    const handleRSVP = async (status, participates = false, hasPlusOne = false) => {
         if (!guestName.trim()) {
             alert("Bitte gib deinen Namen ein!");
             return;
@@ -49,13 +46,26 @@ export default function GuestView({ partyId }) {
                 name: guestName,
                 status: status,
                 participatesInCompetition: participates,
+                hasPlusOne: hasPlusOne,
                 timestamp: Date.now()
             });
             // Persist name for auto-login
             localStorage.setItem(`pitmaster_guest_${partyId}`, guestName);
 
             setHasResponded(true);
-            loadEvent(); // Reload to show updated list
+
+            // Auto-register for shooting competition if opted-in
+            if (status === 'accepted' && participates) {
+                try {
+                    await checkAndAddParticipant(partyId, guestName);
+                    console.log("Auto-registered for shooting");
+                } catch (err) {
+                    console.error("Failed to auto-register for shooting:", err);
+                    // Don't alert user, it's a secondary action. Admin can add manually if needed.
+                }
+            }
+
+            // No need to loadEvent(), subscription will update UI
         } catch (e) {
             alert("Fehler beim Senden der Antwort");
         }
@@ -126,11 +136,24 @@ export default function GuestView({ partyId }) {
                             </div>
                         )}
 
+                        {/* Plus One Checkbox */}
+                        <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', justifyContent: 'center' }}>
+                                <input
+                                    type="checkbox"
+                                    style={{ transform: 'scale(1.5)', accentColor: 'var(--accent-primary)' }}
+                                    id="plusone-check"
+                                />
+                                <span style={{ fontSize: '0.9rem' }}>Ich komme in Begleitung (+1) 👥</span>
+                            </label>
+                        </div>
+
                         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
                                 <button onClick={() => {
                                     const participates = document.getElementById('participation-check')?.checked || false;
-                                    handleRSVP('accepted', participates);
+                                    const hasPlusOne = document.getElementById('plusone-check')?.checked || false;
+                                    handleRSVP('accepted', participates, hasPlusOne);
                                 }} className="btn-primary" style={{ flex: 1, maxWidth: '140px' }}>
                                     Bin dabei! 🚀
                                 </button>
@@ -171,18 +194,21 @@ export default function GuestView({ partyId }) {
                                 if (!item) return;
 
                                 try {
-                                    // Fetch latest to minimize conflicts
-                                    const latest = await getEvent(partyId);
                                     const newItem = { guest: guestName, item, note };
-                                    const updatedList = [...(latest.bringList || []), newItem];
 
-                                    await updateEvent(partyId, { bringList: updatedList });
-                                    setEventData({ ...latest, bringList: updatedList }); // Optimistic local update
+                                    await addToBringList(partyId, newItem);
+
+                                    // Optimistic local update (append to existing)
+                                    setEventData(prev => ({
+                                        ...prev,
+                                        bringList: [...(prev.bringList || []), newItem]
+                                    }));
+
                                     e.target.reset();
                                     alert("Gespeichert! Danke " + guestName + "!");
                                 } catch (err) {
-                                    console.error(err);
-                                    alert("Fehler beim Speichern. Versuch's nochmal.");
+                                    console.error("Error adding to bring list:", err);
+                                    alert("Fehler beim Speichern: " + (err.message || "Unbekannter Fehler"));
                                 }
                             }} style={{ display: 'flex', gap: '0.5rem' }}
                             >
