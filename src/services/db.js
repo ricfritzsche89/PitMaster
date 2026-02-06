@@ -178,10 +178,13 @@ export const rsvpToEvent = async (eventId, guestData) => {
         if (!snap.exists()) throw new Error("Event not found");
 
         let guests = snap.data().guests || [];
-        const plusOneName = guestData.name + " +1";
 
-        // Remove existing entries for this user and their potential +1
-        guests = guests.filter(g => g.name !== guestData.name && g.name !== plusOneName);
+        // Remove existing entries for this user and any guests they brought
+        guests = guests.filter(g =>
+            g.name !== guestData.name &&
+            g.broughtBy !== guestData.name &&
+            g.name !== guestData.name + " +1" // Legacy cleanup 
+        );
 
         // Add Main Guest
         guests.push({
@@ -191,9 +194,11 @@ export const rsvpToEvent = async (eventId, guestData) => {
         });
 
         // Add Plus One if applicable
-        if (guestData.status === 'accepted' && guestData.hasPlusOne) {
+        if (guestData.status === 'accepted' && guestData.hasPlusOne && guestData.plusOneName) {
             guests.push({
-                name: plusOneName,
+                name: guestData.plusOneName + " (via " + guestData.name + ")",
+                originalName: guestData.plusOneName, // Store raw name just in case
+                broughtBy: guestData.name, // Link to main guest
                 status: 'accepted',
                 isPlusOne: true,
                 hasPaid: false,

@@ -7,6 +7,7 @@ export default function GuestView({ partyId }) {
     const [error, setError] = useState(null);
     const [guestName, setGuestName] = useState('');
     const [hasResponded, setHasResponded] = useState(false);
+    const [isPlusOneChecked, setIsPlusOneChecked] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -35,9 +36,16 @@ export default function GuestView({ partyId }) {
     // Removed legacy loadEvent
 
 
-    const handleRSVP = async (status, participates = false, hasPlusOne = false) => {
+    const [plusOneName, setPlusOneName] = useState('');
+
+    const handleRSVP = async (status, participates = false, hasPlusOne = false, plusOneNameInput = '') => {
         if (!guestName.trim()) {
             alert("Bitte gib deinen Namen ein!");
+            return;
+        }
+
+        if (status === 'accepted' && hasPlusOne && !plusOneNameInput.trim()) {
+            alert("Bitte gib den Namen deiner Begleitung ein!");
             return;
         }
 
@@ -47,6 +55,7 @@ export default function GuestView({ partyId }) {
                 status: status,
                 participatesInCompetition: participates,
                 hasPlusOne: hasPlusOne,
+                plusOneName: plusOneNameInput,
                 timestamp: Date.now()
             });
             // Persist name for auto-login
@@ -142,18 +151,27 @@ export default function GuestView({ partyId }) {
                                 <input
                                     type="checkbox"
                                     style={{ transform: 'scale(1.5)', accentColor: 'var(--accent-primary)' }}
-                                    id="plusone-check"
+                                    checked={isPlusOneChecked}
+                                    onChange={(e) => setIsPlusOneChecked(e.target.checked)}
                                 />
                                 <span style={{ fontSize: '0.9rem' }}>Ich komme in Begleitung (+1) 👥</span>
                             </label>
+                            {isPlusOneChecked && (
+                                <input
+                                    placeholder="Name der Begleitung"
+                                    className="input-field"
+                                    style={{ marginTop: '10px', maxWidth: '80%', fontSize: '0.9rem' }}
+                                    value={plusOneName}
+                                    onChange={e => setPlusOneName(e.target.value)}
+                                />
+                            )}
                         </div>
 
                         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: '1rem', width: '100%', justifyContent: 'center' }}>
                                 <button onClick={() => {
                                     const participates = document.getElementById('participation-check')?.checked || false;
-                                    const hasPlusOne = document.getElementById('plusone-check')?.checked || false;
-                                    handleRSVP('accepted', participates, hasPlusOne);
+                                    handleRSVP('accepted', participates, isPlusOneChecked, plusOneName);
                                 }} className="btn-primary" style={{ flex: 1, maxWidth: '140px' }}>
                                     Bin dabei! 🚀
                                 </button>
