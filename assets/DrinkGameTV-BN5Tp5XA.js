@@ -1,0 +1,14 @@
+import{r,o as l,b as d,j as e,d as p}from"./index-DNkAXKhU.js";function f(){const[t,o]=r.useState(null),[a,i]=r.useState(!1);return r.useEffect(()=>l(d(p,"party","drinkgame"),n=>{n.exists()&&!n.data().cleared?(o(n.data()),i(!1),requestAnimationFrame(()=>i(!0))):(o(null),i(!1))}),[]),t?e.jsxs("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px",fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',color:"white",overflow:"hidden"},children:[e.jsx("style",{children:`
+                @keyframes slideIn {
+                    from { transform: translateY(60px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @keyframes pulseGlow {
+                    0%, 100% { box-shadow: 0 0 40px rgba(99,102,241,0.2); }
+                    50% { box-shadow: 0 0 80px rgba(99,102,241,0.4); }
+                }
+                @keyframes ruleSlide {
+                    from { transform: translateX(-30px); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `}),e.jsxs("div",{style:{animation:a?"slideIn 0.6s ease-out":"none",textAlign:"center",marginBottom:"40px"},children:[e.jsx("div",{style:{fontSize:"80px",marginBottom:"16px"},children:t.emoji}),e.jsx("h1",{style:{fontSize:"56px",fontWeight:"900",margin:0,letterSpacing:"-1px"},children:t.name}),e.jsxs("div",{style:{fontSize:"20px",color:"#a5b4fc",marginTop:"12px",fontWeight:"600"},children:["👥 ",t.players," Spieler · 🎯 ",t.material]})]}),e.jsxs("div",{style:{maxWidth:"800px",width:"100%",animation:a?"pulseGlow 3s ease-in-out infinite":"none",background:"rgba(30,41,59,0.6)",borderRadius:"24px",border:"1px solid rgba(99,102,241,0.3)",padding:"32px"},children:[e.jsx("h2",{style:{fontSize:"20px",fontWeight:"800",color:"#a5b4fc",marginBottom:"20px",textTransform:"uppercase",letterSpacing:"3px"},children:"Regeln"}),t.rules?.map((n,s)=>e.jsxs("div",{style:{display:"flex",gap:"16px",alignItems:"flex-start",marginBottom:"16px",animation:a?`ruleSlide 0.4s ease-out ${.3+s*.15}s both`:"none"},children:[e.jsx("span",{style:{background:"rgba(99,102,241,0.3)",borderRadius:"50%",width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"800",fontSize:"14px",color:"#a5b4fc",flexShrink:0},children:s+1}),e.jsx("span",{style:{fontSize:"22px",lineHeight:"1.4",paddingTop:"2px"},children:n})]},s))]})]}):e.jsx("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",display:"flex",alignItems:"center",justifyContent:"center",color:"#475569",fontFamily:"-apple-system, sans-serif",fontSize:"24px"},children:"🎲 Warte auf Spielauswahl..."})}export{f as default};
