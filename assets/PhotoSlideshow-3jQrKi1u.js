@@ -1,9 +1,0 @@
-import{r as s,j as e}from"./index-DvPstc6-.js";import{q as m,l as x,b as h,c as f,o as b,d as p}from"./firebase-B826h7-U.js";function v(){const[t,c]=s.useState([]),[r,i]=s.useState(0);if(s.useEffect(()=>{const n=m(f(p,"photos"),h("timestamp","desc"),x(50)),l=b(n,d=>{const u=d.docs.map(o=>({id:o.id,...o.data()}));c(u)});return()=>l()},[]),s.useEffect(()=>{if(t.length<=1)return;const n=setInterval(()=>{i(l=>(l+1)%t.length)},5e3);return()=>clearInterval(n)},[t.length]),t.length===0)return e.jsxs("div",{className:"w-screen h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-500 animate-pulse",children:[e.jsx("div",{className:"text-8xl mb-4",children:"📸"}),e.jsx("h2",{className:"text-4xl font-bold",children:"Warte auf Fotos..."}),e.jsx("p",{className:"mt-4 text-xl",children:"Scanne den QR-Code um Bilder hochzuladen!"})]});const a=t[r];return e.jsxs("div",{className:"w-screen h-screen bg-black overflow-hidden relative",children:[e.jsx("div",{className:"absolute inset-0 opacity-30 blur-3xl scale-110 transition-all duration-[2000ms]",style:{backgroundImage:`url(${a.url})`,backgroundSize:"cover",backgroundPosition:"center"}}),e.jsx("div",{className:"absolute inset-0 flex items-center justify-center p-10",children:e.jsx("img",{src:a.url,alt:"Slideshow",className:"max-w-full max-h-full object-contain rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-fade-in-scale"},a.id)}),e.jsxs("div",{className:"absolute bottom-8 right-8 bg-black/50 backdrop-blur px-4 py-2 rounded-lg text-white/50 text-sm",children:[r+1," / ",t.length]}),e.jsx("style",{children:`
-                @keyframes fade-in-scale {
-                    0% { opacity: 0; transform: scale(0.95); }
-                    100% { opacity: 1; transform: scale(1); }
-                }
-                .animate-fade-in-scale {
-                    animation: fade-in-scale 1s ease-out forwards;
-                }
-            `})]})}export{v as default};
